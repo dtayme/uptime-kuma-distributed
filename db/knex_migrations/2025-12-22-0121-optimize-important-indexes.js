@@ -1,5 +1,5 @@
 exports.up = async function (knex) {
-    const isSQLite = knex.client.dialect === "sqlite3";
+    const isSQLite = ["sqlite3", "better-sqlite3"].includes(knex.client.dialect);
 
     if (isSQLite) {
         // For SQLite: Use partial indexes with WHERE important = 1
@@ -21,7 +21,7 @@ exports.up = async function (knex) {
 };
 
 exports.down = async function (knex) {
-    const isSQLite = knex.client.dialect === "sqlite3";
+    const isSQLite = ["sqlite3", "better-sqlite3"].includes(knex.client.dialect);
 
     if (isSQLite) {
         // Restore original indexes
