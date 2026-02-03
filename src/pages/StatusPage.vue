@@ -609,7 +609,7 @@ import Favico from "favico.js";
 import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-css";
 import "prismjs/themes/prism-tomorrow.css"; // import syntax highlighting styles
-import ImageCropUpload from "vue-image-crop-upload";
+import ImageCropUpload from "../components/ImageCropUpload.vue";
 // import Prism Editor
 import { PrismEditor } from "vue-prism-editor";
 import "vue-prism-editor/dist/prismeditor.min.css"; // import the styles somewhere
