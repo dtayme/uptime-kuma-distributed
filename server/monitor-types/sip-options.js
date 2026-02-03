@@ -77,6 +77,7 @@ class SIPMonitorType extends MonitorType {
      * @param {string} res response to be parsed
      * @param {object} heartbeat heartbeat object to update
      * @returns {void} returns nothing
+     * @throws {Error} Throws when the SIP response is invalid or non-success.
      */
     parseSipResponse(res, heartbeat) {
         const lines = res.split("\n");
