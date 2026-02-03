@@ -20,8 +20,7 @@ describe("Database Migration", () => {
         }
 
         // Use the same SQLite driver as the project
-        const Dialect = require("knex/lib/dialects/sqlite3/index.js");
-        Dialect.prototype._driver = () => require("@louislam/sqlite3");
+        const Dialect = require("knex/lib/dialects/better-sqlite3/index.js");
 
         const knex = require("knex");
         const db = knex({
