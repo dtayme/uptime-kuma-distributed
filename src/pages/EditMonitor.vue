@@ -82,7 +82,7 @@
                                         <option value="mongodb">MongoDB</option>
                                         <option value="radius">Radius</option>
                                         <option value="redis">Redis</option>
-                                        <option v-if="!$root.info.isContainer" value="sip-options">
+                                        <option value="sip-options">
                                             SIP Options Ping
                                         </option>
                                         <option v-if="!$root.info.isContainer" value="tailscale-ping">
@@ -125,7 +125,7 @@
                                 </select>
                             </div>
 
-                            <div v-if="monitor.type === 'sip-options'" class="alert alert-warning" role="alert">
+                            <div v-if="monitor.type === 'sip-options'" class="alert alert-info" role="alert">
                                 {{ $t("sipsakPingWarning") }}
                             </div>
 
@@ -608,6 +608,41 @@
                                     max="65535"
                                     step="1"
                                 />
+                            </div>
+
+                            <!-- SIP Options -->
+                            <div v-if="monitor.type === 'sip-options'" class="my-3">
+                                <label for="sip-from" class="form-label">{{ $t("sipFrom") }}</label>
+                                <input
+                                    id="sip-from"
+                                    v-model="monitor.sipFrom"
+                                    type="text"
+                                    class="form-control"
+                                    :placeholder="$t('sipFromPlaceholder')"
+                                />
+                            </div>
+                            <div v-if="monitor.type === 'sip-options'" class="my-3">
+                                <label for="sip-contact" class="form-label">{{ $t("sipContact") }}</label>
+                                <input
+                                    id="sip-contact"
+                                    v-model="monitor.sipContact"
+                                    type="text"
+                                    class="form-control"
+                                    :placeholder="$t('sipContactPlaceholder')"
+                                />
+                            </div>
+                            <div v-if="monitor.type === 'sip-options'" class="my-3">
+                                <label for="sip-user-agent" class="form-label">{{ $t("sipUserAgent") }}</label>
+                                <input
+                                    id="sip-user-agent"
+                                    v-model="monitor.sipUserAgent"
+                                    type="text"
+                                    class="form-control"
+                                    :placeholder="$t('sipUserAgentPlaceholder')"
+                                />
+                                <div class="form-text">
+                                    {{ $t("sipUserAgentHelp") }}
+                                </div>
                             </div>
 
                             <!-- SNMP Monitor Type -->
@@ -2794,6 +2829,9 @@ const monitorDefaults = {
     rabbitmqNodes: [],
     rabbitmqUsername: "",
     rabbitmqPassword: "",
+    sipFrom: "",
+    sipContact: "",
+    sipUserAgent: "",
     conditions: [],
     system_service_name: "",
 };
@@ -3677,6 +3715,18 @@ message HealthCheckResponse {
 
             if (this.monitor.url) {
                 this.monitor.url = this.monitor.url.trim();
+            }
+
+            if (this.monitor.sipFrom) {
+                this.monitor.sipFrom = this.monitor.sipFrom.trim();
+            }
+
+            if (this.monitor.sipContact) {
+                this.monitor.sipContact = this.monitor.sipContact.trim();
+            }
+
+            if (this.monitor.sipUserAgent) {
+                this.monitor.sipUserAgent = this.monitor.sipUserAgent.trim();
             }
 
             let createdNewParent = false;

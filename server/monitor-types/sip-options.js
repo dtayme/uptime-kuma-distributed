@@ -1,6 +1,7 @@
 const { MonitorType } = require("./monitor-type");
 const { UP } = require("../../src/util");
-const { execFile } = require("promisify-child-process");
+const crypto = require("crypto");
+const dgram = require("dgram");
 
 class SIPMonitorType extends MonitorType {
     name = "sip-options";
@@ -15,33 +16,61 @@ class SIPMonitorType extends MonitorType {
      * @throws Will throw an error if the command execution encounters any error.
      */
     async check(monitor, heartbeat, _server) {
-        let sipsakOutput = await this.runSipSak(monitor.hostname, monitor.port, 3000);
-        this.parseSipsakResponse(sipsakOutput, heartbeat);
+        // Placeholder for future TCP support
+        if (monitor.sipProtocol && monitor.sipProtocol !== "udp") {
+            throw new Error(`SIP protocol '${monitor.sipProtocol}' is not supported yet`);
+        }
+
+        const response = await this.sendSipOptionsUdp(monitor, 3000);
+        heartbeat.ping = response.responseTime;
+        this.parseSipResponse(response.response, heartbeat);
     }
 
     /**
-     * Runs Sipsak options ping
-     * @param {string} hostname SIP server address to send options.
-     * @param {number} port SIP server port
-     * @param {number} timeout timeout of options reply
-     * @returns {Promise<string>} A Promise that resolves to the output of the Sipsak options ping
-     * @throws Will throw an error if the command execution encounters any error.
+     * Send SIP OPTIONS over UDP
+     * @param {Monitor} monitor Monitor object
+     * @param {number} timeout timeout of options reply in ms
+     * @returns {Promise<{response: string, responseTime: number}>} SIP response info
      */
-    async runSipSak(hostname, port, timeout) {
-        const { stdout, stderr } = await execFile(
-            "sipsak",
-            ["-s", `sip:${hostname}:${port}`, "--from", `sip:sipsak@${hostname}`, "-v"],
-            { timeout }
-        );
+    sendSipOptionsUdp(monitor, timeout) {
+        return new Promise((resolve, reject) => {
+            const hostname = monitor.hostname;
+            const port = monitor.port || 5060;
+            const socket = dgram.createSocket("udp4");
 
-        if (!stdout && stderr && stderr.toString()) {
-            throw new Error(`Error in output: ${stderr.toString()}`);
-        }
-        if (stdout && stdout.toString()) {
-            return stdout.toString();
-        } else {
-            throw new Error("No output from sipsak");
-        }
+            const startTime = Date.now();
+            const message = this.buildSipOptionsMessage(monitor, hostname, port);
+            const messageBuffer = Buffer.from(message, "utf8");
+
+            const timeoutId = setTimeout(() => {
+                socket.close();
+                reject(new Error("SIP OPTIONS timed out"));
+            }, timeout);
+
+            socket.on("error", (error) => {
+                clearTimeout(timeoutId);
+                socket.close();
+                reject(error);
+            });
+
+            socket.on("message", (data) => {
+                clearTimeout(timeoutId);
+                const responseTime = Date.now() - startTime;
+                socket.close();
+                resolve({
+                    response: data.toString("utf8"),
+                    responseTime,
+                });
+            });
+
+            socket.send(messageBuffer, 0, messageBuffer.length, port, hostname, (error) => {
+                if (error) {
+                    clearTimeout(timeoutId);
+                    socket.close();
+                    reject(error);
+                }
+            });
+        });
     }
 
     /**
@@ -49,15 +78,84 @@ class SIPMonitorType extends MonitorType {
      * @param {object} heartbeat heartbeat object to update
      * @returns {void} returns nothing
      */
-    parseSipsakResponse(res, heartbeat) {
-        let lines = res.split("\n");
-        for (let line of lines) {
-            if (line.includes("200 OK")) {
-                heartbeat.status = UP;
-                heartbeat.msg = line;
-                break;
-            }
+    parseSipResponse(res, heartbeat) {
+        const lines = res.split("\n");
+        const statusLine = lines.find((line) => line.startsWith("SIP/2.0"));
+
+        if (!statusLine) {
+            throw new Error("Invalid SIP response");
         }
+
+        const match = statusLine.match(/^SIP\/2\.0\s+(\d{3})\s+(.*)$/);
+        if (!match) {
+            throw new Error(`Invalid SIP status line: ${statusLine}`);
+        }
+
+        const statusCode = parseInt(match[1], 10);
+        if (statusCode >= 200 && statusCode < 300) {
+            heartbeat.status = UP;
+            heartbeat.msg = statusLine.trim();
+            return;
+        }
+
+        throw new Error(`SIP response status: ${statusLine.trim()}`);
+    }
+
+    /**
+     * Build SIP OPTIONS request message
+     * @param {Monitor} monitor Monitor object
+     * @param {string} hostname SIP server hostname
+     * @param {number} port SIP server port
+     * @returns {string} SIP OPTIONS message
+     */
+    buildSipOptionsMessage(monitor, hostname, port) {
+        const branch = `z9hG4bK${crypto.randomBytes(8).toString("hex")}`;
+        const callId = crypto.randomBytes(12).toString("hex");
+        const fromTag = crypto.randomBytes(6).toString("hex");
+
+        const defaultUser = "uptime-kuma";
+        const fromUri = this.normalizeSipUri(monitor.sipFrom, defaultUser, hostname, port);
+        const contactUri = this.normalizeSipUri(monitor.sipContact, defaultUser, hostname, port);
+        const userAgent = (monitor.sipUserAgent || "Uptime Kuma").trim();
+
+        const requestUri = `sip:${hostname}:${port}`;
+
+        return [
+            `OPTIONS ${requestUri} SIP/2.0`,
+            `Via: SIP/2.0/UDP ${hostname}:${port};branch=${branch}`,
+            "Max-Forwards: 70",
+            `From: <${fromUri}>;tag=${fromTag}`,
+            `To: <${requestUri}>`,
+            `Call-ID: ${callId}@${hostname}`,
+            "CSeq: 1 OPTIONS",
+            `Contact: <${contactUri}>`,
+            `User-Agent: ${userAgent}`,
+            "Content-Length: 0",
+            "",
+            "",
+        ].join("\r\n");
+    }
+
+    /**
+     * Normalize SIP URI
+     * @param {string} rawValue Raw input value
+     * @param {string} defaultUser Default user part if missing
+     * @param {string} hostname Hostname for default
+     * @param {number} port Port for default
+     * @returns {string} SIP URI
+     */
+    normalizeSipUri(rawValue, defaultUser, hostname, port) {
+        const trimmed = (rawValue || "").trim();
+        if (!trimmed) {
+            return `sip:${defaultUser}@${hostname}:${port}`;
+        }
+        if (trimmed.startsWith("sip:") || trimmed.startsWith("sips:")) {
+            return trimmed;
+        }
+        if (trimmed.includes("@")) {
+            return `sip:${trimmed}`;
+        }
+        return `sip:${trimmed}@${hostname}:${port}`;
     }
 }
 
