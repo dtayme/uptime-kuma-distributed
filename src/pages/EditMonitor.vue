@@ -82,9 +82,7 @@
                                         <option value="mongodb">MongoDB</option>
                                         <option value="radius">Radius</option>
                                         <option value="redis">Redis</option>
-                                        <option value="sip-options">
-                                            SIP Options Ping
-                                        </option>
+                                        <option value="sip-options">SIP Options Ping</option>
                                         <option v-if="!$root.info.isContainer" value="tailscale-ping">
                                             Tailscale Ping
                                         </option>
