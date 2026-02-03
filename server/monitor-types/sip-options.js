@@ -80,14 +80,14 @@ class SIPMonitorType extends MonitorType {
      * @throws {Error} Throws when the SIP response is invalid or non-success.
      */
     parseSipResponse(res, heartbeat) {
-        const lines = res.split("\n");
+        const lines = res.split(/\r?\n/);
         const statusLine = lines.find((line) => line.startsWith("SIP/2.0"));
 
         if (!statusLine) {
             throw new Error("Invalid SIP response");
         }
 
-        const match = statusLine.match(/^SIP\/2\.0\s+(\d{3})\s+(.*)$/);
+        const match = statusLine.trimEnd().match(/^SIP\/2\.0\s+(\d{3})\s+(.*)$/);
         if (!match) {
             throw new Error(`Invalid SIP status line: ${statusLine}`);
         }
@@ -115,15 +115,28 @@ class SIPMonitorType extends MonitorType {
         const fromTag = crypto.randomBytes(6).toString("hex");
 
         const defaultUser = "uptime-kuma";
-        const fromUri = this.normalizeSipUri(monitor.sipFrom, defaultUser, hostname, port);
-        const contactUri = this.normalizeSipUri(monitor.sipContact, defaultUser, hostname, port);
-        const userAgent = (monitor.sipUserAgent || "Uptime Kuma").trim();
+        const sipFrom = monitor.sipFrom ?? monitor.sip_from;
+        const sipContact = monitor.sipContact ?? monitor.sip_contact;
+        const sipUserAgent = monitor.sipUserAgent ?? monitor.sip_user_agent;
+        const sipRport = monitor.sipRport ?? monitor.sip_rport;
+
+        const fromUri = this.normalizeSipUri(sipFrom, defaultUser, hostname, port);
+        const contactUri = this.normalizeSipUri(sipContact, defaultUser, hostname, port);
+        const userAgent = (sipUserAgent || "Uptime Kuma").trim();
 
         const requestUri = `sip:${hostname}:${port}`;
 
+        const enableRport = sipRport === undefined || sipRport === null ? true : Boolean(sipRport);
+        const viaParams = [];
+        if (enableRport) {
+            viaParams.push("rport");
+        }
+        viaParams.push(`branch=${branch}`);
+        const viaParamString = viaParams.join(";");
+
         return [
             `OPTIONS ${requestUri} SIP/2.0`,
-            `Via: SIP/2.0/UDP ${hostname}:${port};branch=${branch}`,
+            `Via: SIP/2.0/UDP ${hostname}:${port};${viaParamString}`,
             "Max-Forwards: 70",
             `From: <${fromUri}>;tag=${fromTag}`,
             `To: <${requestUri}>`,

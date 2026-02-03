@@ -480,6 +480,8 @@
     "sipUserAgent": "SIP User-Agent",
     "sipUserAgentPlaceholder": "Uptime Kuma",
     "sipUserAgentHelp": "Optional. Used in SIP OPTIONS request headers.",
+    "sipRport": "Add rport to Via",
+    "sipRportHelp": "Recommended. Adds rport to the Via header to improve NAT traversal.",
     "Docker Container": "Docker Container",
     "Container Name / ID": "Container Name / ID",
     "Docker Host": "Docker Host",

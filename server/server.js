@@ -918,6 +918,7 @@ let needSetup = false;
                 bean.sip_from = monitor.sipFrom;
                 bean.sip_contact = monitor.sipContact;
                 bean.sip_user_agent = monitor.sipUserAgent;
+                bean.sip_rport = monitor.sipRport !== undefined ? monitor.sipRport : true;
                 bean.retry_only_on_status_code_failure = Boolean(monitor.retryOnlyOnStatusCodeFailure);
                 bean.timeout = monitor.timeout;
                 bean.rabbitmqNodes = JSON.stringify(monitor.rabbitmqNodes);

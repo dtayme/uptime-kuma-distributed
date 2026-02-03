@@ -206,6 +206,7 @@ class Monitor extends BeanModel {
             sipFrom: this.sip_from,
             sipContact: this.sip_contact,
             sipUserAgent: this.sip_user_agent,
+            sipRport: this.getSipRport(),
             rabbitmqNodes: JSON.parse(this.rabbitmqNodes),
             conditions: JSON.parse(this.conditions),
             ipFamily: this.ipFamily,
@@ -358,6 +359,17 @@ class Monitor extends BeanModel {
      */
     getCacheBust() {
         return Boolean(this.cacheBust);
+    }
+
+    /**
+     * Parse to boolean with default true
+     * @returns {boolean} Should rport be added to SIP Via header?
+     */
+    getSipRport() {
+        if (this.sip_rport === null || this.sip_rport === undefined) {
+            return true;
+        }
+        return Boolean(this.sip_rport);
     }
 
     /**

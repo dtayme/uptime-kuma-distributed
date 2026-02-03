@@ -642,6 +642,22 @@
                                     {{ $t("sipUserAgentHelp") }}
                                 </div>
                             </div>
+                            <div v-if="monitor.type === 'sip-options'" class="my-3">
+                                <div class="form-check">
+                                    <input
+                                        id="sip-rport"
+                                        v-model="monitor.sipRport"
+                                        class="form-check-input"
+                                        type="checkbox"
+                                    />
+                                    <label for="sip-rport" class="form-check-label">
+                                        {{ $t("sipRport") }}
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    {{ $t("sipRportHelp") }}
+                                </div>
+                            </div>
 
                             <!-- SNMP Monitor Type -->
                             <div v-if="monitor.type === 'snmp'" class="my-3">
@@ -2830,6 +2846,7 @@ const monitorDefaults = {
     sipFrom: "",
     sipContact: "",
     sipUserAgent: "",
+    sipRport: true,
     conditions: [],
     system_service_name: "",
 };
@@ -3451,6 +3468,9 @@ message HealthCheckResponse {
                         }
 
                         this.monitor = res.monitor;
+                        if (this.monitor.type === "sip-options" && this.monitor.sipRport === undefined) {
+                            this.monitor.sipRport = true;
+                        }
 
                         if (this.isClone) {
                             /*
