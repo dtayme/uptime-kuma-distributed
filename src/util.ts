@@ -9,7 +9,7 @@
 // Frontend uses util.ts
 */
 
-import dayjsFrontend from "dayjs";
+import * as dayjsFrontend from "dayjs";
 
 // For dayjs plugins' type checking, don't remove event though it is not used in this file
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

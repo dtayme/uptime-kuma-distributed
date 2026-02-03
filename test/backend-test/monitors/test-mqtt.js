@@ -10,7 +10,8 @@ const MQTT_READY_RETRY_DELAY_MS = 1000;
 const MQTT_READY_CONNECT_TIMEOUT_MS = 5000;
 
 /**
- *
+ * Wait until the MQTT broker accepts a connection or the timeout elapses.
+ * @returns {Promise<void>} Resolves when broker is ready.
  */
 async function waitForMqttReady(connectionString) {
     const deadline = Date.now() + MQTT_READY_TIMEOUT_MS;
