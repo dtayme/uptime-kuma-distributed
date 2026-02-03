@@ -1,6 +1,6 @@
-const { describe, test } = require("node:test");
+const { describe, test, before, after } = require("node:test");
 const assert = require("node:assert");
-const { HiveMQContainer } = require("@testcontainers/hivemq");
+const { GenericContainer, Wait } = require("testcontainers");
 const mqtt = require("mqtt");
 const { MqttMonitorType } = require("../../../server/monitor-types/mqtt");
 const { UP, PENDING } = require("../../../src/util");
@@ -8,6 +8,27 @@ const { UP, PENDING } = require("../../../src/util");
 const MQTT_READY_TIMEOUT_MS = 60000;
 const MQTT_READY_RETRY_DELAY_MS = 1000;
 const MQTT_READY_CONNECT_TIMEOUT_MS = 5000;
+const MQTT_CONTAINER_STARTUP_TIMEOUT_MS = 120000;
+const MQTT_CONTAINER_IMAGE = "hivemq/hivemq-ce:2023.5";
+const MQTT_CONTAINER_PORT = 1883;
+const MQTT_CONTAINER_TMPFS = {
+    "/opt/hivemq/log": "rw",
+    "/opt/hivemq/data": "rw",
+};
+
+async function startMqttContainer() {
+    return new GenericContainer(MQTT_CONTAINER_IMAGE)
+        .withExposedPorts(MQTT_CONTAINER_PORT)
+        .withWaitStrategy(Wait.forLogMessage(/Started HiveMQ in/i))
+        .withTmpFs(MQTT_CONTAINER_TMPFS)
+        .withStartupTimeout(MQTT_CONTAINER_STARTUP_TIMEOUT_MS)
+        .start();
+}
+
+let hiveMQContainer;
+let connectionString;
+let mqttHost;
+let mqttPort;
 
 /**
  * Wait until the MQTT broker accepts a connection or the timeout elapses.
@@ -74,15 +95,15 @@ async function testMqtt(
     publishTopic = "test",
     conditions = null
 ) {
-    const hiveMQContainer = await new HiveMQContainer().withStartupTimeout(120000).start();
-    const connectionString = hiveMQContainer.getConnectionString();
-    await waitForMqttReady(connectionString);
+    if (!connectionString) {
+        throw new Error("MQTT test broker was not initialized");
+    }
     const mqttMonitorType = new MqttMonitorType();
     const monitor = {
         jsonPath: "firstProp", // always return firstProp for the json-query monitor
-        hostname: connectionString.split(":", 2).join(":"),
+        hostname: mqttHost,
         mqttTopic: monitorTopic,
-        port: connectionString.split(":")[2],
+        port: mqttPort,
         mqttUsername: null,
         mqttPassword: null,
         mqttWebsocketPath: null, // for WebSocket connections
@@ -107,18 +128,12 @@ async function testMqtt(
             reject(error);
         };
         const onConnect = () => {
-            testMqttClient.subscribe(monitorTopic, (error) => {
-                if (error) {
-                    onError(error);
+            testMqttClient.publish(publishTopic, receivedMessage, { retain: true }, (publishError) => {
+                if (publishError) {
+                    onError(publishError);
                     return;
                 }
-                testMqttClient.publish(publishTopic, receivedMessage, { retain: true }, (publishError) => {
-                    if (publishError) {
-                        onError(publishError);
-                        return;
-                    }
-                    resolve();
-                });
+                resolve();
             });
         };
         testMqttClient.once("error", onError);
@@ -137,7 +152,6 @@ async function testMqtt(
             void error;
         }
         testMqttClient.end();
-        await hiveMQContainer.stop();
     }
     return heartbeat;
 }
@@ -149,6 +163,25 @@ describe(
         skip: !!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"),
     },
     () => {
+        before(async () => {
+            hiveMQContainer = await startMqttContainer();
+            const host = hiveMQContainer.getHost();
+            mqttPort = hiveMQContainer.getMappedPort(MQTT_CONTAINER_PORT);
+            connectionString = `mqtt://${host}:${mqttPort}`;
+            mqttHost = `mqtt://${host}`;
+            await waitForMqttReady(connectionString);
+        });
+
+        after(async () => {
+            if (hiveMQContainer) {
+                await hiveMQContainer.stop();
+                hiveMQContainer = null;
+                connectionString = null;
+                mqttHost = null;
+                mqttPort = null;
+            }
+        });
+
         test("check() sets status to UP when keyword is found in message (type=default)", async () => {
             const heartbeat = await testMqtt("KEYWORD", null, "-> KEYWORD <-");
             assert.strictEqual(heartbeat.status, UP);
