@@ -81,8 +81,8 @@ log.debug("server", "Importing jsonwebtoken");
 const jwt = require("jsonwebtoken");
 log.debug("server", "Importing http-graceful-shutdown");
 const gracefulShutdown = require("http-graceful-shutdown");
-log.debug("server", "Importing prometheus-api-metrics");
-const prometheusAPIMetrics = require("prometheus-api-metrics");
+log.debug("server", "Importing prom-client");
+const PrometheusClient = require("prom-client");
 const { passwordStrength } = require("check-password-strength");
 const TranslatableError = require("./translatable-error");
 
@@ -131,6 +131,7 @@ const passwordHash = require("./password-hash");
 
 const { Prometheus } = require("./prometheus");
 const { UptimeCalculator } = require("./uptime-calculator");
+const packageInfo = require("../package.json");
 
 const hostname = config.hostname;
 
@@ -155,6 +156,42 @@ const twoFAVerifyOptions = {
  * @type {boolean}
  */
 const testMode = !!args["test"] || false;
+
+let prometheusApiMetricsInitialized = false;
+
+function initPrometheusApiMetrics() {
+    if (prometheusApiMetricsInitialized) {
+        return;
+    }
+
+    PrometheusClient.collectDefaultMetrics({ timeout: 10000 });
+
+    const metricName = "app_version";
+    let versionGauge = PrometheusClient.register.getSingleMetric(metricName);
+    if (!versionGauge) {
+        versionGauge = new PrometheusClient.Gauge({
+            name: metricName,
+            help: "The service version by package.json",
+            labelNames: ["version", "major", "minor", "patch"],
+        });
+    }
+
+    const version = packageInfo.version || "0.0.0";
+    const [major, minor, patch] = version.split(".").map((part) => Number.parseInt(part, 10) || 0);
+    versionGauge.labels(version, major, minor, patch).set(1);
+
+    prometheusApiMetricsInitialized = true;
+}
+
+async function handleMetricsRequest(_request, response) {
+    try {
+        response.setHeader("Content-Type", PrometheusClient.register.contentType);
+        response.send(await PrometheusClient.register.metrics());
+    } catch (error) {
+        log.error("prometheus", "Failed to collect metrics", error);
+        response.status(500).send("Failed to collect metrics.");
+    }
+}
 
 // Must be after io instantiation
 const {
@@ -331,7 +368,8 @@ let needSetup = false;
 
     // Prometheus API metrics  /metrics
     // With Basic Auth using the first user's username/password
-    app.get("/metrics", apiAuth, prometheusAPIMetrics());
+    initPrometheusApiMetrics();
+    app.get("/metrics", apiAuth, handleMetricsRequest);
 
     app.use(
         "/",

@@ -1,5 +1,4 @@
 const { MonitorType } = require("./monitor-type");
-const { Globalping, IpVersion } = require("globalping");
 const { Settings } = require("../settings");
 const { log, UP, DOWN, evaluateJsonQuery } = require("../../src/util");
 const {
@@ -10,6 +9,138 @@ const {
     checkCertExpiryNotifications,
 } = require("../util-server");
 const { R } = require("redbean-node");
+
+const GLOBALPING_API_BASE = "https://api.globalping.io";
+const GLOBALPING_POLL_INTERVAL_MS = 500;
+const GLOBALPING_MEASUREMENT_TIMEOUT_MS = 60000;
+const GLOBALPING_REQUEST_TIMEOUT_MS = 30000;
+
+const IpVersion = {
+    4: 4,
+    6: 6,
+};
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+class GlobalpingClient {
+    constructor({ auth, agent, userAgent, timeout } = {}) {
+        this.auth = auth;
+        this.userAgent = userAgent ?? agent ?? "uptime-kuma";
+        this.timeout = timeout ?? GLOBALPING_REQUEST_TIMEOUT_MS;
+    }
+
+    async createMeasurement(measurement) {
+        return this.request("POST", "/v1/measurements", { body: measurement });
+    }
+
+    async getMeasurement(id, etag) {
+        const headers = etag ? { "If-None-Match": etag } : undefined;
+        return this.request("GET", `/v1/measurements/${id}`, { headers });
+    }
+
+    async awaitMeasurement(id) {
+        const start = Date.now();
+        let result = await this.getMeasurement(id);
+        if (!result.ok) {
+            return result;
+        }
+
+        let etag = result.response.headers.get("ETag");
+
+        while (result.data && result.data.status === "in-progress") {
+            if (Date.now() - start > GLOBALPING_MEASUREMENT_TIMEOUT_MS) {
+                throw new Error(`Timed out waiting for measurement ${id} to finish.`);
+            }
+
+            await wait(GLOBALPING_POLL_INTERVAL_MS);
+            const newResult = await this.getMeasurement(id, etag);
+
+            if (newResult.response.status !== 304) {
+                result = newResult;
+                if (!result.ok) {
+                    return result;
+                }
+                etag = result.response.headers.get("ETag");
+            }
+        }
+
+        return result;
+    }
+
+    async request(method, path, { body, headers } = {}) {
+        const url = new URL(path, GLOBALPING_API_BASE);
+        const requestHeaders = new Headers(headers || {});
+
+        if (this.userAgent && !requestHeaders.has("User-Agent")) {
+            requestHeaders.set("User-Agent", this.userAgent);
+        }
+
+        if (this.auth) {
+            requestHeaders.set("Authorization", `Bearer ${this.auth}`);
+        }
+
+        let payload;
+        if (body !== undefined) {
+            payload = JSON.stringify(body);
+            if (!requestHeaders.has("Content-Type")) {
+                requestHeaders.set("Content-Type", "application/json");
+            }
+        } else if (requestHeaders.get("Content-Type") === "application/json") {
+            requestHeaders.delete("Content-Type");
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(new Error("Request timed out")), this.timeout);
+
+        let response;
+        try {
+            response = await fetch(url, {
+                method,
+                headers: requestHeaders,
+                body: payload,
+                signal: controller.signal,
+            });
+        } finally {
+            clearTimeout(timeout);
+        }
+
+        let data = null;
+        const contentType = response.headers.get("Content-Type") || "";
+        if (contentType.includes("application/json")) {
+            try {
+                data = await response.json();
+            } catch (error) {
+                data = null;
+            }
+        } else {
+            try {
+                data = await response.text();
+            } catch (error) {
+                data = null;
+            }
+        }
+
+        if (response.ok) {
+            return { ok: true, data, response };
+        }
+
+        const errorData =
+            data && typeof data === "object" && data.error
+                ? data
+                : {
+                      error: {
+                          type: "http_error",
+                          message: `HTTP ${response.status} ${response.statusText}`,
+                      },
+                  };
+
+        return { ok: false, data: errorData, response };
+    }
+
+    static isHttpStatus(status, result) {
+        return result?.response?.status === status;
+    }
+}
 
 /**
  * Globalping is a free and open-source tool that allows you to run network tests
@@ -37,7 +168,7 @@ class GlobalpingMonitorType extends MonitorType {
      */
     async check(monitor, heartbeat, _server) {
         const apiKey = await Settings.get("globalpingApiToken");
-        const client = new Globalping({
+        const client = new GlobalpingClient({
             auth: apiKey,
             agent: this.httpUserAgent,
         });
@@ -88,7 +219,7 @@ class GlobalpingMonitorType extends MonitorType {
         let res = await client.createMeasurement(opts);
 
         if (!res.ok) {
-            if (Globalping.isHttpStatus(429, res)) {
+            if (GlobalpingClient.isHttpStatus(429, res)) {
                 throw new Error(`Failed to create measurement: ${this.formatTooManyRequestsError(hasAPIToken)}`);
             }
             throw new Error(`Failed to create measurement: ${this.formatApiError(res.data.error)}`);
@@ -189,7 +320,7 @@ class GlobalpingMonitorType extends MonitorType {
         let res = await client.createMeasurement(opts);
 
         if (!res.ok) {
-            if (Globalping.isHttpStatus(429, res)) {
+            if (GlobalpingClient.isHttpStatus(429, res)) {
                 throw new Error(`Failed to create measurement: ${this.formatTooManyRequestsError(hasAPIToken)}`);
             }
             throw new Error(`Failed to create measurement: ${this.formatApiError(res.data.error)}`);
