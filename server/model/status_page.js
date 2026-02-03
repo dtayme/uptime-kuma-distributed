@@ -1,6 +1,6 @@
 const { BeanModel } = require("redbean-node/dist/bean-model");
 const { R } = require("redbean-node");
-const cheerio = require("cheerio");
+const { parseHTML } = require("linkedom");
 const { UptimeKumaServer } = require("../uptime-kuma-server");
 const jsesc = require("jsesc");
 const analytics = require("../analytics/analytics");
@@ -147,57 +147,83 @@ class StatusPage extends BeanModel {
      * @returns {Promise<string>} the rendered html
      */
     static async renderHTML(indexHTML, statusPage) {
-        const $ = cheerio.load(indexHTML);
+        const { document } = parseHTML(indexHTML);
 
         const description155 = marked(statusPage.description ?? "")
             .replace(/<[^>]+>/gm, "")
             .trim()
             .substring(0, 155);
 
-        $("title").text(statusPage.title);
-        $("meta[name=description]").attr("content", description155);
+        const setMeta = (selector, value) => {
+            const el = document.querySelector(selector);
+            if (el) {
+                el.setAttribute("content", value);
+            }
+        };
 
-        if (statusPage.icon) {
-            $("link[rel=icon]").attr("href", statusPage.icon).removeAttr("type");
+        const head = document.querySelector("head");
+        if (head) {
+            const titleEl = head.querySelector("title");
+            if (titleEl) {
+                titleEl.textContent = statusPage.title;
+            }
 
-            $("link[rel=apple-touch-icon]").remove();
+            setMeta('meta[name="description"]', description155);
+
+            if (statusPage.icon) {
+                const iconEl = head.querySelector('link[rel="icon"]');
+                if (iconEl) {
+                    iconEl.setAttribute("href", statusPage.icon);
+                    iconEl.removeAttribute("type");
+                }
+
+                const appleTouch = head.querySelector('link[rel="apple-touch-icon"]');
+                if (appleTouch) {
+                    appleTouch.remove();
+                }
+            }
+
+            if (analytics.isValidAnalyticsConfig(statusPage)) {
+                const escapedAnalyticsScript = analytics.getAnalyticsScript(statusPage);
+                const analyticsFragment = document.createElement("div");
+                analyticsFragment.innerHTML = escapedAnalyticsScript;
+                while (analyticsFragment.firstChild) {
+                    head.appendChild(analyticsFragment.firstChild);
+                }
+            }
+
+            const ogTitle = document.createElement("meta");
+            ogTitle.setAttribute("property", "og:title");
+            ogTitle.setAttribute("content", statusPage.title);
+            head.appendChild(ogTitle);
+
+            const ogDescription = document.createElement("meta");
+            ogDescription.setAttribute("property", "og:description");
+            ogDescription.setAttribute("content", description155);
+            head.appendChild(ogDescription);
+
+            const ogType = document.createElement("meta");
+            ogType.setAttribute("property", "og:type");
+            ogType.setAttribute("content", "website");
+            head.appendChild(ogType);
+
+            const escapedJSONObject = jsesc(await StatusPage.getStatusPageData(statusPage), {
+                isScriptContext: true,
+            });
+
+            const script = document.createElement("script");
+            script.setAttribute("id", "preload-data");
+            script.setAttribute("data-json", "{}");
+            script.textContent = `window.preloadData = ${escapedJSONObject};`;
+            head.appendChild(script);
+
+            const manifest = head.querySelector('link[rel="manifest"]');
+            if (manifest) {
+                manifest.setAttribute("href", `/api/status-page/${statusPage.slug}/manifest.json`);
+            }
         }
 
-        const head = $("head");
-
-        if (analytics.isValidAnalyticsConfig(statusPage)) {
-            let escapedAnalyticsScript = analytics.getAnalyticsScript(statusPage);
-            head.append($(escapedAnalyticsScript));
-        }
-
-        // OG Meta Tags
-        let ogTitle = $('<meta property="og:title" content="" />').attr("content", statusPage.title);
-        head.append(ogTitle);
-
-        let ogDescription = $('<meta property="og:description" content="" />').attr("content", description155);
-        head.append(ogDescription);
-
-        let ogType = $('<meta property="og:type" content="website" />');
-        head.append(ogType);
-
-        // Preload data
-        // Add jsesc, fix https://github.com/louislam/uptime-kuma/issues/2186
-        const escapedJSONObject = jsesc(await StatusPage.getStatusPageData(statusPage), {
-            isScriptContext: true,
-        });
-
-        const script = $(`
-            <script id="preload-data" data-json="{}">
-                window.preloadData = ${escapedJSONObject};
-            </script>
-        `);
-
-        head.append(script);
-
-        // manifest.json
-        $("link[rel=manifest]").attr("href", `/api/status-page/${statusPage.slug}/manifest.json`);
-
-        return $.root().html();
+        return document.toString();
     }
 
     /**

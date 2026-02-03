@@ -1,9 +1,7 @@
 // Go to http://ftp.debian.org/debian/pool/main/a/apprise/ using fetch api, where it is a apache directory listing page
-// Use cheerio to parse the html and get the latest version of Apprise
+// Parse the html and get the latest version of Apprise
 // call curl to download the latest version of Apprise
 // Target file: the latest version of Apprise, which the format is apprise_{VERSION}_all.deb
-
-import * as cheerio from "cheerio";
 import semver from "semver";
 import * as childProcess from "child_process";
 
@@ -16,22 +14,16 @@ if (!response.ok) {
 
 const html = await response.text();
 
-const $ = cheerio.load(html);
-
-// Get all the links in the page
-const linkElements = $("a");
-
-// Filter the links which match apprise_{VERSION}_all.deb
+// Extract deb filenames from links in the HTML
 const links = [];
-const pattern = /apprise_(.*?)_all.deb/;
+const pattern = /href="(apprise_([^"]+?)_all\\.deb)"/g;
 
-for (let i = 0; i < linkElements.length; i++) {
-    const link = linkElements[i];
-    if (link.attribs.href.match(pattern) && !link.attribs.href.includes("~")) {
-        links.push({
-            filename: link.attribs.href,
-            version: link.attribs.href.match(pattern)[1],
-        });
+let match;
+while ((match = pattern.exec(html)) !== null) {
+    const filename = match[1];
+    const version = match[2];
+    if (!filename.includes("~")) {
+        links.push({ filename, version });
     }
 }
 
