@@ -25,6 +25,7 @@
         "start-server": "node server/server.js",
         "start-server-dev": "cross-env NODE_ENV=development node server/server.js",
         "start-server-dev:watch": "cross-env NODE_ENV=development node --watch server/server.js",
+        "start-poller": "node poller/index.js",
         "build": "vite build --config ./config/vite.config.js",
         "test": "npm run test-backend && npm run test-e2e",
         "test-with-build": "npm run build && npm test",
