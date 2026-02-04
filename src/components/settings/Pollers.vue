@@ -30,7 +30,37 @@
             <h5 class="mb-0">Registered Pollers</h5>
         </div>
 
-        <div v-if="pollers.length === 0" class="text-muted">
+        <div class="row g-2 align-items-end mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <input v-model="searchText" class="form-control" type="text" placeholder="Name or region" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select v-model="statusFilter" class="form-select">
+                    <option value="">All</option>
+                    <option value="online">Online</option>
+                    <option value="degraded">Degraded</option>
+                    <option value="offline">Offline</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Region</label>
+                <select v-model="regionFilter" class="form-select">
+                    <option value="">All</option>
+                    <option v-for="region in regions" :key="region" :value="region">
+                        {{ region }}
+                    </option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-outline-secondary w-100" type="button" @click="clearFilters">
+                    Clear
+                </button>
+            </div>
+        </div>
+
+        <div v-if="filteredPollers.length === 0" class="text-muted">
             No pollers registered.
         </div>
 
@@ -44,19 +74,25 @@
                         <th>Status</th>
                         <th>Queue</th>
                         <th>Version</th>
+                        <th>Capabilities</th>
                         <th>Last Heartbeat</th>
+                        <th>Last Results</th>
+                        <th>Assignment Version</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="poller in pollers" :key="poller.id">
+                    <tr v-for="poller in filteredPollers" :key="poller.id">
                         <td>{{ poller.name }}</td>
                         <td>{{ poller.region }}</td>
                         <td>{{ poller.datacenter || "-" }}</td>
                         <td>{{ poller.status }}</td>
                         <td>{{ poller.queueDepth }}</td>
                         <td>{{ poller.version || "-" }}</td>
+                        <td>{{ formatCapabilities(poller.capabilities) }}</td>
                         <td>{{ poller.lastHeartbeatAt || "-" }}</td>
+                        <td>{{ poller.lastResultsAt || "-" }}</td>
+                        <td>{{ poller.assignmentVersion ?? "-" }}</td>
                         <td class="d-flex gap-2">
                             <button class="btn btn-outline-primary btn-sm" @click="rotateToken(poller)">
                                 Rotate Token
@@ -85,11 +121,36 @@ export default {
             rotatedToken: "",
             rotatedPollerName: "",
             processing: false,
+            searchText: "",
+            statusFilter: "",
+            regionFilter: "",
         };
     },
     computed: {
         pollers() {
             return this.$root.pollerList || [];
+        },
+        filteredPollers() {
+            return this.pollers.filter((poller) => {
+                if (this.statusFilter && poller.status !== this.statusFilter) {
+                    return false;
+                }
+                if (this.regionFilter && poller.region !== this.regionFilter) {
+                    return false;
+                }
+                if (this.searchText) {
+                    const term = this.searchText.toLowerCase();
+                    const combined = `${poller.name} ${poller.region} ${poller.datacenter || ""}`.toLowerCase();
+                    if (!combined.includes(term)) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+        },
+        regions() {
+            const unique = new Set(this.pollers.map((poller) => poller.region).filter(Boolean));
+            return Array.from(unique).sort();
         },
     },
     mounted() {
@@ -136,6 +197,20 @@ export default {
                     this.$root.toastError(res.msg);
                 }
             });
+        },
+        clearFilters() {
+            this.searchText = "";
+            this.statusFilter = "";
+            this.regionFilter = "";
+        },
+        formatCapabilities(capabilities) {
+            if (!capabilities || typeof capabilities !== "object") {
+                return "-";
+            }
+            const enabled = Object.entries(capabilities)
+                .filter(([, value]) => Boolean(value))
+                .map(([key]) => key);
+            return enabled.length ? enabled.join(", ") : "-";
         },
     },
 };

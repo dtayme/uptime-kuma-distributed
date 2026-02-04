@@ -164,14 +164,40 @@ function buildMonitorConfig(monitor) {
     };
 }
 
-function selectPollerIdForMonitor(monitor, pollers, mode) {
+function pollerWeight(poller) {
+    let weight = 1;
+    if (poller.status === "degraded") {
+        weight *= 0.5;
+    }
+    const depth = Number.isFinite(poller.queue_depth) ? poller.queue_depth : 0;
+    weight *= 1 / (1 + Math.max(0, depth));
+    return Math.max(weight, 0.05);
+}
+
+function hashToUnit(value) {
+    const digest = crypto.createHash("sha1").update(value).digest();
+    const int = digest.readUInt32BE(0);
+    return int / 0xffffffff;
+}
+
+function selectPollerIdForMonitor(monitor, pollers) {
     if (!pollers.length) {
         return null;
     }
 
-    const sorted = pollers.slice().sort((a, b) => a.id - b.id);
-    const index = monitor.id % sorted.length;
-    return sorted[index].id;
+    let bestId = null;
+    let bestScore = -1;
+
+    for (const poller of pollers) {
+        const weight = pollerWeight(poller);
+        const score = hashToUnit(`${monitor.id}:${poller.id}`) * weight;
+        if (score > bestScore) {
+            bestScore = score;
+            bestId = poller.id;
+        }
+    }
+
+    return bestId;
 }
 
 async function buildAssignmentsForPoller(poller) {
@@ -237,6 +263,8 @@ async function buildAssignmentsForPoller(poller) {
             config: buildMonitorConfig(monitor),
         });
     }
+
+    assignments.sort((a, b) => a.monitor_id - b.monitor_id);
 
     return assignments;
 }
