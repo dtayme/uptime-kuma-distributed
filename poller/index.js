@@ -3,8 +3,9 @@ const path = require("path");
 const { loadConfig } = require("./config");
 const { createLogger } = require("./logger");
 const { openDatabase } = require("./db");
-const { initSchema, queueDepth, pruneExpired } = require("./queue");
+const { initSchema, queueDepth, pruneExpired, loadAssignments, saveAssignments } = require("./queue");
 const { PollerApiClient } = require("./api-client");
+const { Scheduler } = require("./scheduler");
 
 const config = loadConfig();
 const log = createLogger("poller");
@@ -21,6 +22,8 @@ const apiClient = new PollerApiClient({
     pollerId: config.pollerId,
 });
 
+const scheduler = new Scheduler(log);
+
 log.info(`Poller scaffold starting (version ${appVersion})`);
 log.info(`Central URL: ${config.centralUrl}`);
 log.info(`Queue DB: ${config.dbPath}`);
@@ -31,6 +34,11 @@ if (!isConfigured) {
 }
 
 let assignmentVersion = null;
+const cachedAssignments = loadAssignments(db);
+if (cachedAssignments) {
+    assignmentVersion = cachedAssignments.assignmentVersion;
+    scheduler.updateAssignments(cachedAssignments.assignments);
+}
 
 async function heartbeat() {
     if (!isConfigured) {
@@ -63,6 +71,10 @@ async function refreshAssignments() {
         const response = await apiClient.fetchAssignments(assignmentVersion);
         if (response && response.assignment_version !== undefined) {
             assignmentVersion = response.assignment_version;
+            if (Array.isArray(response.assignments)) {
+                saveAssignments(db, assignmentVersion, { assignments: response.assignments });
+                scheduler.updateAssignments(response.assignments);
+            }
         }
     } catch (error) {
         log.warn(`Assignment refresh failed: ${error.message}`);
@@ -84,6 +96,8 @@ setInterval(() => {
 setInterval(() => {
     maintenance();
 }, Math.max(config.uploadIntervalMs, 10000));
+
+scheduler.start(config.schedulerIntervalMs);
 
 heartbeat();
 refreshAssignments();

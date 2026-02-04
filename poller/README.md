@@ -21,6 +21,7 @@ Optional environment variables:
 - `POLLER_HEARTBEAT_INTERVAL_SECONDS` (default: `15`)
 - `POLLER_ASSIGNMENTS_INTERVAL_SECONDS` (default: `30`)
 - `POLLER_UPLOAD_INTERVAL_SECONDS` (default: `10`)
+- `POLLER_SCHEDULER_INTERVAL_SECONDS` (default: `5`)
 - `POLLER_QUEUE_RETENTION_SECONDS` (default: `86400`)
 
 ## Notes

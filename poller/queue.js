@@ -75,6 +75,40 @@ function pruneExpired(db, retentionSeconds) {
     db.prepare("DELETE FROM poller_queue WHERE ts < ?").run(cutoff);
 }
 
+function loadAssignments(db) {
+    const row = db.prepare("SELECT assignment_version, snapshot_json FROM poller_assignments LIMIT 1").get();
+    if (!row) {
+        return null;
+    }
+
+    try {
+        const snapshot = JSON.parse(row.snapshot_json);
+        return {
+            assignmentVersion: row.assignment_version,
+            assignments: snapshot.assignments || [],
+        };
+    } catch {
+        return null;
+    }
+}
+
+function saveAssignments(db, assignmentVersion, snapshot) {
+    const now = Date.now();
+    const payload = JSON.stringify(snapshot || {});
+    const deleteStmt = db.prepare("DELETE FROM poller_assignments");
+    const insertStmt = db.prepare(`
+        INSERT INTO poller_assignments (assignment_version, snapshot_json, updated_at)
+        VALUES (?, ?, ?)
+    `);
+
+    const transaction = db.transaction(() => {
+        deleteStmt.run();
+        insertStmt.run(assignmentVersion, payload, now);
+    });
+
+    transaction();
+}
+
 module.exports = {
     initSchema,
     queueDepth,
@@ -82,4 +116,6 @@ module.exports = {
     dequeueBatch,
     markDelivered,
     pruneExpired,
+    loadAssignments,
+    saveAssignments,
 };

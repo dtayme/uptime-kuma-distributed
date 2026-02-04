@@ -33,6 +33,7 @@ function loadConfig() {
         heartbeatIntervalMs: parseNumber(process.env.POLLER_HEARTBEAT_INTERVAL_SECONDS, 15) * 1000,
         assignmentsIntervalMs: parseNumber(process.env.POLLER_ASSIGNMENTS_INTERVAL_SECONDS, 30) * 1000,
         uploadIntervalMs: parseNumber(process.env.POLLER_UPLOAD_INTERVAL_SECONDS, 10) * 1000,
+        schedulerIntervalMs: parseNumber(process.env.POLLER_SCHEDULER_INTERVAL_SECONDS, 5) * 1000,
         queueRetentionSeconds: parseNumber(process.env.POLLER_QUEUE_RETENTION_SECONDS, 86400),
         batchSize: parseNumber(process.env.POLLER_UPLOAD_BATCH_SIZE, 50),
     };

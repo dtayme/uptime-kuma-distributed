@@ -399,6 +399,10 @@ let needSetup = false;
     const apiRouter = require("./routers/api-router");
     app.use(apiRouter);
 
+    // Poller Router
+    const pollerRouter = require("./routers/poller-router");
+    app.use(pollerRouter);
+
     // Status Page Router
     const statusPageRouter = require("./routers/status-page-router");
     app.use(statusPageRouter);
