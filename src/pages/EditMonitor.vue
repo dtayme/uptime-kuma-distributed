@@ -172,15 +172,6 @@
                                 </select>
                             </div>
 
-                            <div v-if="monitor.pollerMode !== 'local'" class="my-3">
-                                <label class="form-label">Required Capability</label>
-                                <select v-model="monitor.pollerCapability" class="form-select">
-                                    <option v-for="option in pollerCapabilityOptions" :key="option.value" :value="option.value">
-                                        {{ option.label }}
-                                    </option>
-                                </select>
-                            </div>
-
                             <!-- Manual Status switcher -->
                             <div v-if="monitor.type === 'manual'" class="mb-3">
                                 <div class="btn-group w-100 mb-3">
@@ -2944,6 +2935,7 @@ export default {
                 confirmed: false,
                 editedValue: false,
             },
+            lastAutoPollerCapability: "",
         };
     },
 
@@ -3032,21 +3024,6 @@ export default {
                 { label: "Auto (remote)", value: "auto" },
                 { label: "Grouped (region/datacenter)", value: "grouped" },
                 { label: "Pinned (specific poller)", value: "pinned" },
-            ];
-        },
-
-        pollerCapabilityOptions() {
-            return [
-                { label: "Any", value: "" },
-                { label: "HTTP", value: "http" },
-                { label: "Ping (ICMP)", value: "icmp" },
-                { label: "TCP", value: "tcp" },
-                { label: "DNS", value: "dns" },
-                { label: "SNMP", value: "snmp" },
-                { label: "MQTT", value: "mqtt" },
-                { label: "MySQL/MariaDB", value: "mysql" },
-                { label: "PostgreSQL", value: "postgres" },
-                { label: "SQL Server", value: "sqlserver" },
             ];
         },
 
@@ -3402,6 +3379,10 @@ message HealthCheckResponse {
                 this.monitor.jsonPathOperator = "==";
             }
 
+            if (this.isAdd) {
+                this.applyDefaultPollerCapability();
+            }
+
             // Get the game list from server
             if (this.monitor.type === "gamedig") {
                 this.$root.getSocket().emit("getGameList", (res) => {
@@ -3462,6 +3443,10 @@ message HealthCheckResponse {
                     this.monitor.responsecheck = null;
                 }
             }
+
+            if (this.isAdd && this.monitor.type === "globalping") {
+                this.applyDefaultPollerCapability();
+            }
         },
 
         "monitor.responsecheck"(newSubtype) {
@@ -3512,6 +3497,71 @@ message HealthCheckResponse {
     },
     methods: {
         /**
+         * Map monitor type (and subtype) to a poller capability.
+         * @param {string} type Monitor type
+         * @param {string} subtype Monitor subtype
+         * @returns {string} Capability value or empty string
+         */
+        mapMonitorTypeToCapability(type, subtype = "") {
+            switch (type) {
+                case "http":
+                case "keyword":
+                case "json-query":
+                case "real-browser":
+                case "grpc-keyword":
+                case "websocket-upgrade":
+                    return "http";
+                case "ping":
+                    return "icmp";
+                case "dns":
+                    return "dns";
+                case "snmp":
+                    return "snmp";
+                case "mqtt":
+                    return "mqtt";
+                case "mysql":
+                    return "mysql";
+                case "postgres":
+                    return "postgres";
+                case "sqlserver":
+                    return "sqlserver";
+                case "port":
+                case "smtp":
+                case "docker":
+                case "system-service":
+                case "steam":
+                case "gamedig":
+                case "rabbitmq":
+                case "kafka-producer":
+                case "mongodb":
+                case "redis":
+                case "radius":
+                case "sip-options":
+                case "tailscale-ping":
+                    return "tcp";
+                case "globalping":
+                    return subtype === "http" ? "http" : "icmp";
+                default:
+                    return "";
+            }
+        },
+
+        /**
+         * Set poller capability for new monitors to match monitor type.
+         * @returns {void}
+         */
+        applyDefaultPollerCapability() {
+            const mapped = this.mapMonitorTypeToCapability(this.monitor.type, this.monitor.subtype);
+            const shouldAutofill =
+                !this.monitor.pollerCapability || this.monitor.pollerCapability === this.lastAutoPollerCapability;
+
+            if (shouldAutofill) {
+                this.monitor.pollerCapability = mapped;
+                this.lastAutoPollerCapability = mapped;
+            }
+        },
+
+        /**
          * Initialize the edit monitor form
          * @returns {void}
          */
@@ -3524,6 +3574,8 @@ message HealthCheckResponse {
                     packetSize: 56,
                     ping_per_request_timeout: 2,
                 };
+
+                this.applyDefaultPollerCapability();
 
                 if (this.$root.proxyList && !this.monitor.proxyId) {
                     const proxy = this.$root.proxyList.find((proxy) => proxy.default);
@@ -3794,7 +3846,6 @@ message HealthCheckResponse {
                 this.monitor.pollerId = null;
                 this.monitor.pollerRegion = "";
                 this.monitor.pollerDatacenter = "";
-                this.monitor.pollerCapability = "";
             } else if (this.monitor.pollerMode === "auto") {
                 this.monitor.pollerId = null;
                 this.monitor.pollerRegion = "";
@@ -3804,6 +3855,15 @@ message HealthCheckResponse {
             } else if (this.monitor.pollerMode === "pinned") {
                 this.monitor.pollerRegion = "";
                 this.monitor.pollerDatacenter = "";
+            }
+
+            if (this.monitor.pollerMode !== "local") {
+                this.monitor.pollerCapability = this.mapMonitorTypeToCapability(
+                    this.monitor.type,
+                    this.monitor.subtype
+                );
+            } else {
+                this.monitor.pollerCapability = "";
             }
 
             if (!this.isInputValid()) {
