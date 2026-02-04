@@ -1,17 +1,81 @@
 const { describe, test } = require("node:test");
 const assert = require("node:assert");
-const { MariaDbContainer } = require("@testcontainers/mariadb");
+const { GenericContainer, Wait } = require("testcontainers");
+const mysql = require("mysql2");
 const { MysqlMonitorType } = require("../../../server/monitor-types/mysql");
 const { UP, PENDING } = require("../../../src/util");
 
+const MYSQL_READY_TIMEOUT_MS = 60000;
+const MYSQL_READY_RETRY_DELAY_MS = 1000;
+const MYSQL_READY_CONNECT_TIMEOUT_MS = 5000;
+
+/**
+ * Wait until the MariaDB server accepts a connection or the timeout elapses.
+ * @returns {Promise<void>} Resolves when the server is ready.
+ */
+async function waitForMariaDbReady(connectionString) {
+    const deadline = Date.now() + MYSQL_READY_TIMEOUT_MS;
+    let lastError = null;
+
+    while (Date.now() < deadline) {
+        try {
+            await new Promise((resolve, reject) => {
+                const connection = mysql.createConnection({
+                    uri: connectionString,
+                    connectTimeout: MYSQL_READY_CONNECT_TIMEOUT_MS,
+                });
+
+                connection.query("SELECT 1", (err) => {
+                    try {
+                        connection.end();
+                    } catch (_) {
+                        void _;
+                        connection.destroy();
+                    }
+
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+
+                    resolve();
+                });
+            });
+
+            return;
+        } catch (error) {
+            lastError = error;
+            await new Promise((resolve) => setTimeout(resolve, MYSQL_READY_RETRY_DELAY_MS));
+        }
+    }
+
+    const message = lastError ? `${lastError.message}` : "MariaDB did not become ready in time";
+    throw new Error(message);
+}
+
 /**
  * Helper function to create and start a MariaDB container
- * @returns {Promise<{container: MariaDbContainer, connectionString: string}>} The started container and connection string
+ * @returns {Promise<{container: import("testcontainers").StartedTestContainer, connectionString: string}>} The started container and connection string
  */
 async function createAndStartMariaDBContainer() {
-    const container = await new MariaDbContainer("mariadb:10.11").withStartupTimeout(120000).start();
+    const database = "test";
+    const username = "test";
+    const password = "test";
+    const port = 3306;
+    const container = await new GenericContainer("mariadb:10.11")
+        .withEnvironment({
+            MARIADB_DATABASE: database,
+            MARIADB_USER: username,
+            MARIADB_PASSWORD: password,
+            MARIADB_ROOT_PASSWORD: password,
+        })
+        .withExposedPorts(port)
+        .withWaitStrategy(Wait.forLogMessage(/port: 3306/))
+        .withStartupTimeout(120000)
+        .start();
 
-    const connectionString = `mysql://${container.getUsername()}:${container.getUserPassword()}@${container.getHost()}:${container.getPort()}/${container.getDatabase()}`;
+    const connectionString = `mysql://${username}:${password}@${container.getHost()}:${container.getMappedPort(port)}/${database}`;
+    await waitForMariaDbReady(connectionString);
 
     return {
         container,

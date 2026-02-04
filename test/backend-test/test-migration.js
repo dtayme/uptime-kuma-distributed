@@ -2,9 +2,62 @@ const { describe, test } = require("node:test");
 const fs = require("fs");
 const path = require("path");
 const { GenericContainer, Wait } = require("testcontainers");
-const { MySqlContainer } = require("@testcontainers/mysql");
+const mysql = require("mysql2");
 
-describe("Database Migration", () => {
+const MYSQL_READY_TIMEOUT_MS = 60000;
+const MYSQL_READY_RETRY_DELAY_MS = 1000;
+const MYSQL_READY_CONNECT_TIMEOUT_MS = 5000;
+
+/**
+ * Wait until MySQL/MariaDB accepts connections or the timeout elapses.
+ * @returns {Promise<void>} Resolves when the server is ready.
+ */
+async function waitForMysqlReady(connectionString) {
+    const deadline = Date.now() + MYSQL_READY_TIMEOUT_MS;
+    let lastError = null;
+
+    while (Date.now() < deadline) {
+        try {
+            await new Promise((resolve, reject) => {
+                const connection = mysql.createConnection({
+                    uri: connectionString,
+                    connectTimeout: MYSQL_READY_CONNECT_TIMEOUT_MS,
+                });
+
+                connection.query("SELECT 1", (err) => {
+                    try {
+                        connection.end();
+                    } catch (_) {
+                        void _;
+                        connection.destroy();
+                    }
+
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+
+                    resolve();
+                });
+            });
+
+            return;
+        } catch (error) {
+            lastError = error;
+            await new Promise((resolve) => setTimeout(resolve, MYSQL_READY_RETRY_DELAY_MS));
+        }
+    }
+
+    const message = lastError ? `${lastError.message}` : "Database did not become ready in time";
+    throw new Error(message);
+}
+
+describe(
+    "Database Migration",
+    {
+        concurrency: 1,
+    },
+    () => {
     test("SQLite migrations run successfully from fresh database", async () => {
         const testDbPath = path.join(__dirname, "../../data/test-migration.db");
         const testDbDir = path.dirname(testDbPath);
@@ -62,20 +115,23 @@ describe("Database Migration", () => {
         },
         async () => {
             // Start MariaDB container (using MariaDB 12 to match current production)
+            const mariadbDatabase = "kuma_test";
+            const mariadbUser = "kuma";
+            const mariadbPassword = "kuma";
             const mariadbContainer = await new GenericContainer("mariadb:12")
                 .withEnvironment({
                     MYSQL_ROOT_PASSWORD: "root",
-                    MYSQL_DATABASE: "kuma_test",
-                    MYSQL_USER: "kuma",
-                    MYSQL_PASSWORD: "kuma",
+                    MYSQL_DATABASE: mariadbDatabase,
+                    MYSQL_USER: mariadbUser,
+                    MYSQL_PASSWORD: mariadbPassword,
                 })
                 .withExposedPorts(3306)
-                .withWaitStrategy(Wait.forLogMessage("ready for connections", 2))
+                .withWaitStrategy(Wait.forLogMessage(/port: 3306/i))
                 .withStartupTimeout(120000)
                 .start();
 
-            // Wait a bit more to ensure MariaDB is fully ready
-            await new Promise((resolve) => setTimeout(resolve, 2000));
+            const mariadbConnectionString = `mysql://${mariadbUser}:${mariadbPassword}@${mariadbContainer.getHost()}:${mariadbContainer.getMappedPort(3306)}/${mariadbDatabase}`;
+            await waitForMysqlReady(mariadbConnectionString);
 
             const knex = require("knex");
             const knexInstance = knex({
@@ -83,9 +139,9 @@ describe("Database Migration", () => {
                 connection: {
                     host: mariadbContainer.getHost(),
                     port: mariadbContainer.getMappedPort(3306),
-                    user: "kuma",
-                    password: "kuma",
-                    database: "kuma_test",
+                    user: mariadbUser,
+                    password: mariadbPassword,
+                    database: mariadbDatabase,
                     connectTimeout: 60000,
                 },
                 pool: {
@@ -136,17 +192,33 @@ describe("Database Migration", () => {
         },
         async () => {
             // Start MySQL 8.0 container (the version mentioned in the issue)
-            const mysqlContainer = await new MySqlContainer("mysql:8.0").withStartupTimeout(120000).start();
+            const mysqlDatabase = "kuma_test";
+            const mysqlUser = "kuma";
+            const mysqlPassword = "kuma";
+            const mysqlContainer = await new GenericContainer("mysql:8.0")
+                .withEnvironment({
+                    MYSQL_ROOT_PASSWORD: "root",
+                    MYSQL_DATABASE: mysqlDatabase,
+                    MYSQL_USER: mysqlUser,
+                    MYSQL_PASSWORD: mysqlPassword,
+                })
+                .withExposedPorts(3306)
+                .withWaitStrategy(Wait.forLogMessage(/port: 3306/i))
+                .withStartupTimeout(120000)
+                .start();
+
+            const mysqlConnectionString = `mysql://${mysqlUser}:${mysqlPassword}@${mysqlContainer.getHost()}:${mysqlContainer.getMappedPort(3306)}/${mysqlDatabase}`;
+            await waitForMysqlReady(mysqlConnectionString);
 
             const knex = require("knex");
             const knexInstance = knex({
                 client: "mysql2",
                 connection: {
                     host: mysqlContainer.getHost(),
-                    port: mysqlContainer.getPort(),
-                    user: mysqlContainer.getUsername(),
-                    password: mysqlContainer.getUserPassword(),
-                    database: mysqlContainer.getDatabase(),
+                    port: mysqlContainer.getMappedPort(3306),
+                    user: mysqlUser,
+                    password: mysqlPassword,
+                    database: mysqlDatabase,
                     connectTimeout: 60000,
                 },
                 pool: {
@@ -189,4 +261,5 @@ describe("Database Migration", () => {
             }
         }
     );
-});
+    }
+);
