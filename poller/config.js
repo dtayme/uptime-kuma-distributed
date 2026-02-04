@@ -26,6 +26,7 @@ function loadConfig() {
         centralUrl: process.env.POLLER_SERVER_URL || "http://localhost:3001",
         pollerId: process.env.POLLER_ID || null,
         accessToken: process.env.POLLER_TOKEN || null,
+        registrationToken: process.env.POLLER_REGISTRATION_TOKEN || null,
         region: process.env.POLLER_REGION || "local",
         datacenter: process.env.POLLER_DATACENTER || "",
         capabilities: parseJson(process.env.POLLER_CAPABILITIES_JSON, {}),

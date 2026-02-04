@@ -31,6 +31,20 @@ class PollerApiClient {
         });
     }
 
+    async registerPoller(payload, registrationToken) {
+        return this.request(
+            "/api/poller/register",
+            {
+                method: "POST",
+                body: JSON.stringify(payload),
+                headers: {
+                    "x-poller-registration-token": registrationToken,
+                },
+            },
+            false
+        );
+    }
+
     async request(pathOrUrl, options, isAbsolute) {
         const url = isAbsolute ? pathOrUrl : `${this.baseUrl}${pathOrUrl}`;
         const headers = {

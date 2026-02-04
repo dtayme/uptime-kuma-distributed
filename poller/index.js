@@ -28,8 +28,11 @@ log.info(`Poller scaffold starting (version ${appVersion})`);
 log.info(`Central URL: ${config.centralUrl}`);
 log.info(`Queue DB: ${config.dbPath}`);
 
-const isConfigured = Boolean(config.pollerId && config.accessToken);
-if (!isConfigured) {
+let isConfigured = Boolean(config.pollerId && config.accessToken);
+if (!isConfigured && config.registrationToken) {
+    log.info("Registration token provided. Attempting poller registration.");
+}
+if (!isConfigured && !config.registrationToken) {
     log.warn("POLLER_ID or POLLER_TOKEN not set. Running in idle mode.");
 }
 
@@ -42,6 +45,7 @@ if (cachedAssignments) {
 
 async function heartbeat() {
     if (!isConfigured) {
+        await attemptRegistration();
         return;
     }
 
@@ -62,8 +66,39 @@ async function heartbeat() {
     }
 }
 
+async function attemptRegistration() {
+    if (isConfigured || !config.registrationToken) {
+        return;
+    }
+
+    try {
+        const response = await apiClient.registerPoller(
+            {
+                name: `poller-${Date.now()}`,
+                region: config.region,
+                datacenter: config.datacenter,
+                capabilities: config.capabilities,
+                version: appVersion,
+            },
+            config.registrationToken
+        );
+
+        if (response?.poller_id && response?.access_token) {
+            config.pollerId = response.poller_id;
+            config.accessToken = response.access_token;
+            apiClient.pollerId = response.poller_id;
+            apiClient.accessToken = response.access_token;
+            isConfigured = true;
+            log.info(`Registered poller as ${response.poller_id}`);
+        }
+    } catch (error) {
+        log.warn(`Registration failed: ${error.message}`);
+    }
+}
+
 async function refreshAssignments() {
     if (!isConfigured) {
+        await attemptRegistration();
         return;
     }
 
@@ -99,5 +134,6 @@ setInterval(() => {
 
 scheduler.start(config.schedulerIntervalMs);
 
+attemptRegistration();
 heartbeat();
 refreshAssignments();

@@ -115,6 +115,9 @@ export default {
                 "api-keys": {
                     title: this.$t("API Keys"),
                 },
+                pollers: {
+                    title: "Remote Pollers",
+                },
                 proxies: {
                     title: this.$t("Proxies"),
                 },

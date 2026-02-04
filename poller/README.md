@@ -14,6 +14,7 @@ Optional environment variables:
 - `POLLER_SERVER_URL` (default: `http://localhost:3001`)
 - `POLLER_ID`
 - `POLLER_TOKEN`
+- `POLLER_REGISTRATION_TOKEN`
 - `POLLER_REGION` (default: `local`)
 - `POLLER_DATACENTER`
 - `POLLER_CAPABILITIES_JSON` (default: `{}`)

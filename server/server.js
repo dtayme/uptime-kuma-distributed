@@ -209,6 +209,7 @@ const {
     sendProxyList,
     sendDockerHostList,
     sendAPIKeyList,
+    sendPollerList,
     sendRemoteBrowserList,
     sendMonitorTypeList,
 } = require("./client");
@@ -226,6 +227,7 @@ const { proxySocketHandler } = require("./socket-handlers/proxy-socket-handler")
 const { dockerSocketHandler } = require("./socket-handlers/docker-socket-handler");
 const { maintenanceSocketHandler } = require("./socket-handlers/maintenance-socket-handler");
 const { apiKeySocketHandler } = require("./socket-handlers/api-key-socket-handler");
+const { pollerSocketHandler } = require("./socket-handlers/poller-socket-handler");
 const { generalSocketHandler } = require("./socket-handlers/general-socket-handler");
 const { Settings } = require("./settings");
 const apicache = require("./modules/apicache");
@@ -809,6 +811,13 @@ let needSetup = false;
                 if (monitor.retryOnlyOnStatusCodeFailure !== undefined) {
                     bean.retry_only_on_status_code_failure = monitor.retryOnlyOnStatusCodeFailure;
                 }
+                if (monitor.pollerMode !== undefined) {
+                    bean.pollerMode = monitor.pollerMode;
+                    bean.pollerId = monitor.pollerId;
+                    bean.pollerRegion = monitor.pollerRegion;
+                    bean.pollerDatacenter = monitor.pollerDatacenter;
+                    bean.pollerCapability = monitor.pollerCapability;
+                }
                 bean.user_id = socket.userID;
 
                 bean.validate();
@@ -898,6 +907,11 @@ let needSetup = false;
                 bean.interval = monitor.interval;
                 bean.retryInterval = monitor.retryInterval;
                 bean.resendInterval = monitor.resendInterval;
+                bean.pollerMode = monitor.pollerMode;
+                bean.pollerId = monitor.pollerId;
+                bean.pollerRegion = monitor.pollerRegion;
+                bean.pollerDatacenter = monitor.pollerDatacenter;
+                bean.pollerCapability = monitor.pollerCapability;
                 bean.hostname = monitor.hostname;
                 bean.game = monitor.game;
                 bean.maxretries = monitor.maxretries;
@@ -1756,6 +1770,7 @@ let needSetup = false;
         dockerSocketHandler(socket);
         maintenanceSocketHandler(socket);
         apiKeySocketHandler(socket);
+        pollerSocketHandler(socket);
         remoteBrowserSocketHandler(socket);
         generalSocketHandler(socket, server);
         chartSocketHandler(socket);
@@ -1859,6 +1874,7 @@ async function afterLogin(socket, user) {
         sendProxyList(socket),
         sendDockerHostList(socket),
         sendAPIKeyList(socket),
+        sendPollerList(socket),
         sendRemoteBrowserList(socket),
         sendMonitorTypeList(socket),
     ]);
@@ -1934,7 +1950,12 @@ async function startMonitor(userID, monitorID) {
     }
 
     server.monitorList[monitor.id] = monitor;
-    await monitor.start(io);
+    const pollerMode = monitor.pollerMode ?? monitor.poller_mode;
+    if (!pollerMode || pollerMode === "local") {
+        await monitor.start(io);
+    } else {
+        log.info("monitor", `Monitor ${monitorID} assigned to poller (${pollerMode}), skipping local start`);
+    }
 }
 
 /**
@@ -1979,7 +2000,12 @@ async function startMonitors() {
 
     for (let monitor of list) {
         try {
-            await monitor.start(io);
+            const pollerMode = monitor.pollerMode ?? monitor.poller_mode;
+            if (!pollerMode || pollerMode === "local") {
+                await monitor.start(io);
+            } else {
+                log.info("monitor", `Monitor ${monitor.id} assigned to poller (${pollerMode}), skipping local start`);
+            }
         } catch (e) {
             log.error("monitor", e);
         }
