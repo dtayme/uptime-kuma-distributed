@@ -1,4 +1,7 @@
 class Scheduler {
+    /**
+     * @param {{logger: {info: Function, warn: Function} | null, executeAssignment: Function, enqueueResult: Function}} options
+     */
     constructor({ logger, executeAssignment, enqueueResult }) {
         this.logger = logger;
         this.assignments = [];
@@ -9,6 +12,11 @@ class Scheduler {
         this.running = false;
     }
 
+    /**
+     * Update the assignment list.
+     * @param {object[]} assignments Assignment list
+     * @returns {void}
+     */
     updateAssignments(assignments) {
         this.assignments = Array.isArray(assignments) ? assignments : [];
         const knownIds = new Set(this.assignments.map((assignment) => assignment.monitor_id));
@@ -23,6 +31,11 @@ class Scheduler {
         }
     }
 
+    /**
+     * Start the scheduler loop.
+     * @param {number} intervalMs Tick interval in milliseconds
+     * @returns {void}
+     */
     start(intervalMs) {
         if (this.started) {
             return;
@@ -31,6 +44,10 @@ class Scheduler {
         setInterval(() => this.tick(), intervalMs);
     }
 
+    /**
+     * Execute one scheduler tick.
+     * @returns {Promise<void>}
+     */
     async tick() {
         if (this.running) {
             return;

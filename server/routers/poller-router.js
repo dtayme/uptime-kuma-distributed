@@ -8,56 +8,66 @@ const { UptimeKumaServer } = require("../uptime-kuma-server");
 const Monitor = require("../model/monitor");
 const { Prometheus } = require("../prometheus");
 const { UptimeCalculator } = require("../uptime-calculator");
+const {
+    buildAssignmentsForPoller,
+    computeAssignmentVersion,
+    parseCapabilities,
+    pollerHasCapability,
+} = require("../poller/assignments");
 const { log, UP, DOWN, PENDING, MAINTENANCE, flipStatus } = require("../../src/util");
 
 const router = express.Router();
 const server = UptimeKumaServer.getInstance();
 const io = server.io;
 
+/**
+ * Check if pollers are enabled.
+ * @returns {boolean}
+ */
 function pollersEnabled() {
     return process.env.ENABLE_REMOTE_POLLERS === "1" || process.env.ENABLE_POLLERS === "1";
 }
 
+/**
+ * Extract registration token from request.
+ * @param {import("express").Request} request
+ * @returns {string}
+ */
 function getRegistrationToken(request) {
     return request.headers["x-poller-registration-token"] || request.body?.registration_token || "";
 }
 
+/**
+ * Hash a token using SHA-256.
+ * @param {string} token
+ * @returns {string}
+ */
 function hashToken(token) {
     return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+/**
+ * Get current UTC time in ISO format.
+ * @returns {string}
+ */
 function nowIso() {
     return R.isoDateTimeMillis(dayjs.utc());
 }
 
-function parseCapabilities(value) {
-    if (!value) {
-        return {};
-    }
-    try {
-        return typeof value === "string" ? JSON.parse(value) : value;
-    } catch {
-        return {};
-    }
-}
-
-function computeAssignmentVersion(assignments) {
-    const payload = JSON.stringify(assignments || []);
-    const digest = crypto.createHash("sha1").update(payload).digest("hex").slice(0, 8);
-    return Number.parseInt(digest, 16);
-}
-
-function pollerHasCapability(pollerCaps, required) {
-    if (!required) {
-        return true;
-    }
-    return Boolean(pollerCaps?.[required]);
-}
-
+/**
+ * Normalize poller mode.
+ * @param {string|null|undefined} mode
+ * @returns {string}
+ */
 function normalizePollerMode(mode) {
     return mode || "local";
 }
 
+/**
+ * Parse result status value into enum value.
+ * @param {string|number|null|undefined} statusValue
+ * @returns {number|null}
+ */
 function parseResultStatus(statusValue) {
     if (statusValue === undefined || statusValue === null) {
         return null;
@@ -81,6 +91,15 @@ function parseResultStatus(statusValue) {
     return null;
 }
 
+/**
+ * Compute heartbeat status with retries handling.
+ * @param {number} status Parsed status
+ * @param {object|null} previousHeartbeat Previous heartbeat row
+ * @param {number} maxretries Max retries
+ * @param {boolean} isUpsideDown Upside down flag
+ * @param {object} bean Heartbeat bean
+ * @returns {void}
+ */
 function determineStatus(status, previousHeartbeat, maxretries, isUpsideDown, bean) {
     let nextStatus = status;
     if (isUpsideDown) {
@@ -119,156 +138,12 @@ function determineStatus(status, previousHeartbeat, maxretries, isUpsideDown, be
     }
 }
 
-function buildMonitorConfig(monitor) {
-    return {
-        url: monitor.url,
-        hostname: monitor.hostname,
-        port: monitor.port,
-        method: monitor.method,
-        body: monitor.body,
-        headers: monitor.headers,
-        keyword: monitor.keyword,
-        invertKeyword: monitor.invertKeyword,
-        timeout: monitor.timeout,
-        maxretries: monitor.maxretries,
-        retryInterval: monitor.retryInterval,
-        resendInterval: monitor.resendInterval,
-        ignoreTls: monitor.ignoreTls,
-        upsideDown: monitor.upsideDown,
-        packetSize: monitor.packetSize,
-        ping_count: monitor.ping_count,
-        ping_numeric: monitor.ping_numeric,
-        ping_per_request_timeout: monitor.ping_per_request_timeout,
-        dns_resolve_type: monitor.dns_resolve_type,
-        dns_resolve_server: monitor.dns_resolve_server,
-        mqttTopic: monitor.mqttTopic,
-        mqttSuccessMessage: monitor.mqttSuccessMessage,
-        mqttCheckType: monitor.mqttCheckType,
-        databaseConnectionString: monitor.databaseConnectionString,
-        databaseQuery: monitor.databaseQuery,
-        authMethod: monitor.authMethod,
-        grpcUrl: monitor.grpcUrl,
-        grpcProtobuf: monitor.grpcProtobuf,
-        grpcMethod: monitor.grpcMethod,
-        grpcServiceName: monitor.grpcServiceName,
-        grpcEnableTls: monitor.grpcEnableTls,
-        radiusUsername: monitor.radiusUsername,
-        radiusPassword: monitor.radiusPassword,
-        radiusSecret: monitor.radiusSecret,
-        game: monitor.game,
-        gamedigGivenPortOnly: monitor.gamedigGivenPortOnly,
-        jsonPath: monitor.jsonPath,
-        jsonPathOperator: monitor.jsonPathOperator,
-        expectedValue: monitor.expectedValue,
-        accepted_statuscodes_json: monitor.accepted_statuscodes_json,
-    };
-}
-
-function pollerWeight(poller) {
-    let weight = 1;
-    if (poller.status === "degraded") {
-        weight *= 0.5;
-    }
-    const depth = Number.isFinite(poller.queue_depth) ? poller.queue_depth : 0;
-    weight *= 1 / (1 + Math.max(0, depth));
-    return Math.max(weight, 0.05);
-}
-
-function hashToUnit(value) {
-    const digest = crypto.createHash("sha1").update(value).digest();
-    const int = digest.readUInt32BE(0);
-    return int / 0xffffffff;
-}
-
-function selectPollerIdForMonitor(monitor, pollers) {
-    if (!pollers.length) {
-        return null;
-    }
-
-    let bestId = null;
-    let bestScore = -1;
-
-    for (const poller of pollers) {
-        const weight = pollerWeight(poller);
-        const score = hashToUnit(`${monitor.id}:${poller.id}`) * weight;
-        if (score > bestScore) {
-            bestScore = score;
-            bestId = poller.id;
-        }
-    }
-
-    return bestId;
-}
-
-async function buildAssignmentsForPoller(poller) {
-    const pollers = await R.find("poller");
-    const onlinePollers = pollers.filter((p) => p.status !== "offline");
-    const pollerCaps = parseCapabilities(poller.capabilities);
-
-    const monitors = await R.find(
-        "monitor",
-        " active = 1 AND poller_mode IS NOT NULL AND poller_mode != 'local' "
-    );
-
-    const assignments = [];
-
-    for (const monitor of monitors) {
-        const mode = normalizePollerMode(monitor.pollerMode ?? monitor.poller_mode);
-        if (mode === "local") {
-            continue;
-        }
-
-        const requiredCapability = monitor.pollerCapability ?? monitor.poller_capability;
-        if (!pollerHasCapability(pollerCaps, requiredCapability)) {
-            continue;
-        }
-
-        if (mode === "pinned") {
-            const pinnedId = monitor.pollerId ?? monitor.poller_id;
-            if (pinnedId !== poller.id) {
-                continue;
-            }
-        } else if (mode === "grouped") {
-            const region = monitor.pollerRegion ?? monitor.poller_region;
-            const datacenter = monitor.pollerDatacenter ?? monitor.poller_datacenter;
-            const candidates = onlinePollers.filter((p) => {
-                if (region && p.region !== region) {
-                    return false;
-                }
-                if (datacenter && p.datacenter !== datacenter) {
-                    return false;
-                }
-                const caps = parseCapabilities(p.capabilities);
-                return pollerHasCapability(caps, requiredCapability);
-            });
-            const assignedId = selectPollerIdForMonitor(monitor, candidates, mode);
-            if (assignedId !== poller.id) {
-                continue;
-            }
-        } else {
-            const candidates = onlinePollers.filter((p) => {
-                const caps = parseCapabilities(p.capabilities);
-                return pollerHasCapability(caps, requiredCapability);
-            });
-            const assignedId = selectPollerIdForMonitor(monitor, candidates, mode);
-            if (assignedId !== poller.id) {
-                continue;
-            }
-        }
-
-        assignments.push({
-            monitor_id: monitor.id,
-            interval: monitor.interval,
-            type: monitor.type,
-            config: buildMonitorConfig(monitor),
-        });
-    }
-
-    assignments.sort((a, b) => a.monitor_id - b.monitor_id);
-
-    return assignments;
-}
-
+/**
+ * Apply a poller result to a monitor heartbeat.
+ * @param {object} poller Poller record
+ * @param {object} result Result payload
+ * @returns {Promise<void>}
+ */
 async function processPollerResult(poller, result) {
     const monitorIdRaw = result.monitor_id ?? result.monitorId;
     const monitorId = Number.parseInt(monitorIdRaw, 10);
@@ -384,6 +259,13 @@ async function processPollerResult(poller, result) {
     }
 }
 
+/**
+ * Express middleware to validate poller auth.
+ * @param {import("express").Request} request
+ * @param {import("express").Response} response
+ * @param {import("express").NextFunction} next
+ * @returns {Promise<void>}
+ */
 async function requirePollerAuth(request, response, next) {
     if (!pollersEnabled()) {
         return response.status(404).json({ ok: false, msg: "Pollers are disabled" });
@@ -450,6 +332,7 @@ router.post("/api/poller/register", async (request, response) => {
         pollerBean.status = "offline";
         pollerBean.queue_depth = 0;
         pollerBean.assignment_version = 0;
+        pollerBean.weight = 100;
         pollerBean.created_at = now;
         pollerBean.updated_at = now;
         await R.store(pollerBean);

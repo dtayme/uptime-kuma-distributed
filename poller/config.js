@@ -1,5 +1,11 @@
 const path = require("path");
 
+/**
+ * Parse an integer-like value or return fallback.
+ * @param {string|number|null|undefined} value Value to parse
+ * @param {number} fallback Fallback value
+ * @returns {number}
+ */
 function parseNumber(value, fallback) {
     if (value === undefined || value === null || value === "") {
         return fallback;
@@ -9,6 +15,12 @@ function parseNumber(value, fallback) {
     return Number.isNaN(parsed) ? fallback : parsed;
 }
 
+/**
+ * Parse JSON or return fallback.
+ * @param {string|object|null|undefined} value JSON string or object
+ * @param {any} fallback Fallback value
+ * @returns {any}
+ */
 function parseJson(value, fallback) {
     if (!value) {
         return fallback;
@@ -21,6 +33,10 @@ function parseJson(value, fallback) {
     }
 }
 
+/**
+ * Load poller configuration from environment variables.
+ * @returns {object}
+ */
 function loadConfig() {
     return {
         centralUrl: process.env.POLLER_SERVER_URL || "http://localhost:3001",

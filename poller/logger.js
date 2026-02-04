@@ -1,3 +1,8 @@
+/**
+ * Create a scoped logger for the poller runtime.
+ * @param {string} scope Log scope label
+ * @returns {{info: Function, warn: Function, error: Function, debug: Function}}
+ */
 function createLogger(scope) {
     return {
         info(message) {
@@ -15,6 +20,13 @@ function createLogger(scope) {
     };
 }
 
+/**
+ * Write a log line to stdout.
+ * @param {string} level Log level
+ * @param {string} scope Log scope label
+ * @param {string} message Log message
+ * @returns {void}
+ */
 function log(level, scope, message) {
     const timestamp = new Date().toISOString();
     console.log(`${timestamp} [${scope}] ${level}: ${message}`);

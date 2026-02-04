@@ -675,6 +675,14 @@ export default {
             socket.emit("revokePollerTokens", pollerId, callback);
         },
 
+        updatePoller(payload, callback) {
+            socket.emit("updatePoller", payload, callback);
+        },
+
+        getPollerAssignmentPreview(pollerId, callback) {
+            socket.emit("getPollerAssignmentPreview", pollerId, callback);
+        },
+
         /**
          * Delete specified API key
          * @param {int} keyID ID of key to delete

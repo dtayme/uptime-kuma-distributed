@@ -1,10 +1,21 @@
+/**
+ * Client for poller API calls.
+ */
 class PollerApiClient {
+    /**
+     * @param {{baseUrl: string, accessToken: string | null, pollerId: number | string | null}} options
+     */
     constructor({ baseUrl, accessToken, pollerId }) {
         this.baseUrl = baseUrl.replace(/\/+$/, "");
         this.accessToken = accessToken;
         this.pollerId = pollerId;
     }
 
+    /**
+     * Send a heartbeat payload to the central server.
+     * @param {object} payload Heartbeat payload
+     * @returns {Promise<object|null>}
+     */
     async heartbeat(payload) {
         return this.request("/api/poller/heartbeat", {
             method: "POST",
@@ -12,6 +23,11 @@ class PollerApiClient {
         });
     }
 
+    /**
+     * Fetch assignments from the central server.
+     * @param {number|null} sinceVersion Last known assignment version
+     * @returns {Promise<object|null>}
+     */
     async fetchAssignments(sinceVersion) {
         const url = new URL(`${this.baseUrl}/api/poller/assignments`);
         if (sinceVersion !== undefined && sinceVersion !== null) {
@@ -24,6 +40,11 @@ class PollerApiClient {
         return this.request(url.toString(), { method: "GET" }, true);
     }
 
+    /**
+     * Submit poller results to the central server.
+     * @param {Array<object>} results Results payload
+     * @returns {Promise<object|null>}
+     */
     async postResults(results) {
         return this.request("/api/poller/results", {
             method: "POST",
@@ -31,6 +52,12 @@ class PollerApiClient {
         });
     }
 
+    /**
+     * Register the poller with the central server.
+     * @param {object} payload Registration payload
+     * @param {string} registrationToken Registration token
+     * @returns {Promise<object|null>}
+     */
     async registerPoller(payload, registrationToken) {
         return this.request(
             "/api/poller/register",
@@ -45,6 +72,13 @@ class PollerApiClient {
         );
     }
 
+    /**
+     * Execute an HTTP request against the poller API.
+     * @param {string} pathOrUrl Relative path or absolute URL
+     * @param {object} options Fetch options
+     * @param {boolean} isAbsolute Treat path as absolute URL
+     * @returns {Promise<object|null>}
+     */
     async request(pathOrUrl, options, isAbsolute) {
         const url = isAbsolute ? pathOrUrl : `${this.baseUrl}${pathOrUrl}`;
         const headers = {

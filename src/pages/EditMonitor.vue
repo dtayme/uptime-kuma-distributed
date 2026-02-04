@@ -3044,6 +3044,9 @@ export default {
                 { label: "DNS", value: "dns" },
                 { label: "SNMP", value: "snmp" },
                 { label: "MQTT", value: "mqtt" },
+                { label: "MySQL/MariaDB", value: "mysql" },
+                { label: "PostgreSQL", value: "postgres" },
+                { label: "SQL Server", value: "sqlserver" },
             ];
         },
 

@@ -58,6 +58,10 @@ if (cachedAssignments) {
     scheduler.updateAssignments(cachedAssignments.assignments);
 }
 
+/**
+ * Send poller heartbeat to the central server.
+ * @returns {Promise<void>}
+ */
 async function heartbeat() {
     if (!isConfigured) {
         await attemptRegistration();
@@ -81,6 +85,10 @@ async function heartbeat() {
     }
 }
 
+/**
+ * Attempt poller registration if configured.
+ * @returns {Promise<void>}
+ */
 async function attemptRegistration() {
     if (isConfigured || !config.registrationToken) {
         return;
@@ -111,6 +119,10 @@ async function attemptRegistration() {
     }
 }
 
+/**
+ * Refresh assignments from the central server.
+ * @returns {Promise<void>}
+ */
 async function refreshAssignments() {
     if (!isConfigured) {
         await attemptRegistration();
@@ -131,10 +143,18 @@ async function refreshAssignments() {
     }
 }
 
+/**
+ * Perform periodic maintenance tasks.
+ * @returns {void}
+ */
 function maintenance() {
     pruneExpired(db, config.queueRetentionSeconds);
 }
 
+/**
+ * Upload queued results to the central server.
+ * @returns {Promise<void>}
+ */
 async function uploadQueue() {
     if (!isConfigured) {
         return;
@@ -184,6 +204,11 @@ async function uploadQueue() {
     }
 }
 
+/**
+ * Calculate retry backoff delay in seconds.
+ * @param {number} attempts Attempt count
+ * @returns {number}
+ */
 function backoffSeconds(attempts) {
     const delays = [2, 5, 15, 30, 60, 120, 300];
     const index = Math.min(attempts - 1, delays.length - 1);

@@ -213,6 +213,7 @@ async function sendPollerList(socket) {
             status: bean.status,
             queueDepth: bean.queue_depth,
             assignmentVersion: bean.assignment_version,
+            weight: bean.weight,
             lastHeartbeatAt: bean.last_heartbeat_at,
             lastAssignmentPullAt: bean.last_assignment_pull_at,
             lastResultsAt: bean.last_results_at,
