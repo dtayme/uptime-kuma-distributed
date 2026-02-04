@@ -2,7 +2,6 @@ const NotificationProvider = require("./notification-provider");
 const { DOWN, UP } = require("../../src/util");
 const { default: axios } = require("axios");
 const Crypto = require("crypto");
-const qs = require("qs");
 
 class AliyunSMS extends NotificationProvider {
     name = "AliyunSMS";
@@ -73,7 +72,7 @@ class AliyunSMS extends NotificationProvider {
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
             },
-            data: qs.stringify(params),
+            data: new URLSearchParams(params).toString(),
         };
 
         config = this.getAxiosConfigWithProxy(config);
