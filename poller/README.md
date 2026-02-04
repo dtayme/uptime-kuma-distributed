@@ -58,6 +58,46 @@ Optional environment variables:
 - `POLLER_SCHEDULER_INTERVAL_SECONDS` (default: `5`)
 - `POLLER_QUEUE_RETENTION_SECONDS` (default: `86400`)
 
+## How To Use (Central + Poller)
+
+1. Start central with pollers enabled and a registration token.
+
+```bash
+docker run --rm \
+  -e ENABLE_POLLERS=1 \
+  -e POLLER_REGISTRATION_TOKEN=replace-with-registration-token \
+  -p 3001:3001 \
+  -v uptimekuma-data:/app/data \
+  fognetx/uptimekuma:nightly
+```
+
+2. Register the poller (first run) to receive `poller_id` and `access_token`.
+
+```bash
+docker run --rm \
+  -e POLLER_SERVER_URL=http://host.docker.internal:3001 \
+  -e POLLER_REGISTRATION_TOKEN=replace-with-registration-token \
+  -e POLLER_REGION=us-east \
+  -v poller-data:/app/poller-data \
+  fognetx/uptimekuma:poller
+```
+
+3. Run the poller using the returned credentials.
+
+```bash
+docker run --rm \
+  -e POLLER_SERVER_URL=http://host.docker.internal:3001 \
+  -e POLLER_ID=1 \
+  -e POLLER_TOKEN=replace-with-access-token \
+  -e POLLER_REGION=us-east \
+  -v poller-data:/app/poller-data \
+  fognetx/uptimekuma:poller
+```
+
+Notes:
+- You can also set the registration token in Settings -> Pollers instead of the env var.
+- If you are running central and poller in the same Docker network, use the service name for `POLLER_SERVER_URL`.
+
 ## Notes
 
 - The poller currently runs in a safe "idle" mode if no `POLLER_ID` or `POLLER_TOKEN`

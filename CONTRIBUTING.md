@@ -54,7 +54,7 @@ to review the appropriate one for your contribution.
   [**PLEASE SEE OUR SECURITY POLICY.**](SECURITY.md)
 
   [advisory]: https://github.com/louislam/uptime-kuma/security/advisories/new
-  [issue]: https://github.com/louislam/uptime-kuma/issues/new?template=security_issue.yml
+  [issue]: https://github.com/dtayme/uptime-kuma/issues/new?template=security_issue.yml
 
   </p>
   </details>

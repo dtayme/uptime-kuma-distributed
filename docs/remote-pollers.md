@@ -15,6 +15,11 @@ This document captures the phased plan to add support for multiple remote poller
 
 ## Step 2: Control Plane
 
+Status:
+- [x] Poller registry tables (`poller`, `poller_token`)
+- [x] Monitor assignment columns (`poller_mode`, `poller_id`, `poller_region`, `poller_datacenter`, `poller_capability`)
+- [x] Control plane API endpoints (`/api/poller/register`, `/api/poller/heartbeat`, `/api/poller/assignments`, `/api/poller/results`)
+
 ### Poller Registry (DB)
 
 Table: `poller`
@@ -71,6 +76,14 @@ Extend `monitor`:
 - Pollers cache snapshot locally.
 
 ## Step 3: Data Plane
+
+Status:
+- [x] SQLite queue schema on poller
+- [x] Poller registration + token bootstrap
+- [x] Poller assignments pull + local cache
+- [x] Batch result upload and heartbeat ingestion
+- [ ] Access token refresh / rotation
+- [ ] Optional mTLS support
 
 ### Transport
 
@@ -131,6 +144,11 @@ Table: `poller_state`
 - Stale results: `stale` monitor status.
 
 ## Step 4: UI + API Updates
+
+Status:
+- [x] Poller settings panel (list + status)
+- [x] Registration token support (env or settings)
+- [ ] Advanced filters/management UX (region/datacenter filters, rotate/revoke tokens)
 
 ### Poller Management
 

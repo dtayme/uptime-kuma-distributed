@@ -165,7 +165,7 @@ If you love this project, please consider giving it a ⭐.
 
 I recommend using Google, GitHub Issues, or Uptime Kuma's subreddit for finding answers to your question. If you cannot find the information you need, feel free to ask:
 
-- [GitHub Issues](https://github.com/louislam/uptime-kuma/issues)
+- [GitHub Issues](https://github.com/dtayme/uptime-kuma/issues)
 - [Subreddit (r/UptimeKuma)](https://www.reddit.com/r/UptimeKuma/)
 
 My Reddit account: [u/louislamlam](https://reddit.com/u/louislamlam)
@@ -191,7 +191,7 @@ Check out the latest beta release here: <https://github.com/louislam/uptime-kuma
 
 ### Bug Reports / Feature Requests
 
-If you want to report a bug or request a new feature, feel free to open a [new issue](https://github.com/louislam/uptime-kuma/issues).
+If you want to report a bug or request a new feature, feel free to open a [new issue](https://github.com/dtayme/uptime-kuma/issues).
 
 ### Translations
 
