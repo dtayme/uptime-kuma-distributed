@@ -9,6 +9,9 @@ class TestDB {
     }
 
     async create() {
+        if (this.dataDir) {
+            rimrafSync(this.dataDir);
+        }
         Database.initDataDir({ "data-dir": this.dataDir });
         Database.dbConfig = {
             type: "sqlite",

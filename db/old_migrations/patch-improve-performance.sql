@@ -2,9 +2,9 @@
 BEGIN TRANSACTION;
 
 -- For sendHeartbeatList
-CREATE INDEX monitor_time_index ON heartbeat (monitor_id, time);
+CREATE INDEX IF NOT EXISTS monitor_time_index ON heartbeat (monitor_id, time);
 
 -- For sendImportantHeartbeatList
-CREATE INDEX monitor_important_time_index ON heartbeat (monitor_id, important,time);
+CREATE INDEX IF NOT EXISTS monitor_important_time_index ON heartbeat (monitor_id, important,time);
 
 COMMIT;
