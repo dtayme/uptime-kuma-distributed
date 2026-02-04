@@ -53,6 +53,9 @@ async function waitForSnmpReady(host, port, community, oid) {
     throw new Error(message);
 }
 
+/**
+ *
+ */
 async function getFreeUdpPort() {
     return new Promise((resolve, reject) => {
         const socket = dgram.createSocket("udp4");
@@ -64,6 +67,9 @@ async function getFreeUdpPort() {
     });
 }
 
+/**
+ *
+ */
 function startSnmpAgent(port) {
     const agent = snmp.createAgent(
         {
