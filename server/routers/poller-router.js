@@ -41,6 +41,12 @@ function parseCapabilities(value) {
     }
 }
 
+function computeAssignmentVersion(assignments) {
+    const payload = JSON.stringify(assignments || []);
+    const digest = crypto.createHash("sha1").update(payload).digest("hex").slice(0, 8);
+    return Number.parseInt(digest, 16);
+}
+
 function pollerHasCapability(pollerCaps, required) {
     if (!required) {
         return true;
@@ -122,6 +128,7 @@ function buildMonitorConfig(monitor) {
         body: monitor.body,
         headers: monitor.headers,
         keyword: monitor.keyword,
+        invertKeyword: monitor.invertKeyword,
         timeout: monitor.timeout,
         maxretries: monitor.maxretries,
         retryInterval: monitor.retryInterval,
@@ -129,6 +136,9 @@ function buildMonitorConfig(monitor) {
         ignoreTls: monitor.ignoreTls,
         upsideDown: monitor.upsideDown,
         packetSize: monitor.packetSize,
+        ping_count: monitor.ping_count,
+        ping_numeric: monitor.ping_numeric,
+        ping_per_request_timeout: monitor.ping_per_request_timeout,
         dns_resolve_type: monitor.dns_resolve_type,
         dns_resolve_server: monitor.dns_resolve_server,
         mqttTopic: monitor.mqttTopic,
@@ -147,6 +157,10 @@ function buildMonitorConfig(monitor) {
         radiusSecret: monitor.radiusSecret,
         game: monitor.game,
         gamedigGivenPortOnly: monitor.gamedigGivenPortOnly,
+        jsonPath: monitor.jsonPath,
+        jsonPathOperator: monitor.jsonPathOperator,
+        expectedValue: monitor.expectedValue,
+        accepted_statuscodes_json: monitor.accepted_statuscodes_json,
     };
 }
 
@@ -470,12 +484,20 @@ router.get("/api/poller/assignments", requirePollerAuth, async (request, respons
         poller.updated_at = nowIso();
         await R.store(poller);
 
-        const version = poller.assignment_version || 0;
         const assignments = await buildAssignmentsForPoller(poller);
+        const version = computeAssignmentVersion(assignments);
+        const sinceVersion = request.query?.since_version ? Number.parseInt(request.query.since_version, 10) : null;
+
+        if (poller.assignment_version !== version) {
+            poller.assignment_version = version;
+            poller.updated_at = nowIso();
+            await R.store(poller);
+        }
+
         return response.json({
             ok: true,
             assignment_version: version,
-            assignments,
+            assignments: sinceVersion === version ? [] : assignments,
         });
     } catch (error) {
         sendHttpError(response, error.message);
@@ -498,6 +520,7 @@ router.post("/api/poller/results", requirePollerAuth, async (request, response) 
             } catch (error) {
                 errors.push({
                     monitor_id: result?.monitor_id ?? result?.monitorId ?? null,
+                    client_id: result?.client_id ?? result?.clientId ?? null,
                     msg: error.message,
                 });
             }

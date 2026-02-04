@@ -70,6 +70,14 @@ function markDelivered(db, ids) {
     db.prepare(`DELETE FROM poller_queue WHERE id IN (${placeholders})`).run(...ids);
 }
 
+function updateRetry(db, id, attempts, nextRetryAt) {
+    db.prepare("UPDATE poller_queue SET attempts = ?, next_retry_at = ? WHERE id = ?").run(
+        attempts,
+        nextRetryAt,
+        id
+    );
+}
+
 function pruneExpired(db, retentionSeconds) {
     const cutoff = Date.now() - retentionSeconds * 1000;
     db.prepare("DELETE FROM poller_queue WHERE ts < ?").run(cutoff);
@@ -115,6 +123,7 @@ module.exports = {
     enqueueResult,
     dequeueBatch,
     markDelivered,
+    updateRetry,
     pruneExpired,
     loadAssignments,
     saveAssignments,

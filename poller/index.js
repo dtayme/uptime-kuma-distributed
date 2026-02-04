@@ -3,9 +3,20 @@ const path = require("path");
 const { loadConfig } = require("./config");
 const { createLogger } = require("./logger");
 const { openDatabase } = require("./db");
-const { initSchema, queueDepth, pruneExpired, loadAssignments, saveAssignments } = require("./queue");
+const {
+    initSchema,
+    queueDepth,
+    pruneExpired,
+    loadAssignments,
+    saveAssignments,
+    enqueueResult,
+    dequeueBatch,
+    markDelivered,
+    updateRetry,
+} = require("./queue");
 const { PollerApiClient } = require("./api-client");
 const { Scheduler } = require("./scheduler");
+const { executeAssignment } = require("./executor");
 
 const config = loadConfig();
 const log = createLogger("poller");
@@ -22,7 +33,11 @@ const apiClient = new PollerApiClient({
     pollerId: config.pollerId,
 });
 
-const scheduler = new Scheduler(log);
+const scheduler = new Scheduler({
+    logger: log,
+    executeAssignment,
+    enqueueResult: (record) => enqueueResult(db, record),
+});
 
 log.info(`Poller scaffold starting (version ${appVersion})`);
 log.info(`Central URL: ${config.centralUrl}`);
@@ -120,6 +135,61 @@ function maintenance() {
     pruneExpired(db, config.queueRetentionSeconds);
 }
 
+async function uploadQueue() {
+    if (!isConfigured) {
+        return;
+    }
+
+    const batch = dequeueBatch(db, config.batchSize);
+    if (!batch.length) {
+        return;
+    }
+
+    const results = batch.map((row) => ({
+        client_id: row.id,
+        monitor_id: row.monitor_id,
+        ts: row.ts,
+        status: row.status,
+        latency_ms: row.latency_ms,
+        msg: row.msg,
+        meta: row.meta ? JSON.parse(row.meta) : undefined,
+    }));
+
+    try {
+        const response = await apiClient.postResults(results);
+        const errorIds = new Set(
+            Array.isArray(response?.errors)
+                ? response.errors.map((entry) => entry.client_id).filter((id) => id !== null && id !== undefined)
+                : []
+        );
+
+        const deliveredIds = batch.filter((row) => !errorIds.has(row.id)).map((row) => row.id);
+        markDelivered(db, deliveredIds);
+
+        if (errorIds.size > 0) {
+            const failedRows = batch.filter((row) => errorIds.has(row.id));
+            for (const row of failedRows) {
+                const attempts = (row.attempts || 0) + 1;
+                const delaySeconds = backoffSeconds(attempts);
+                updateRetry(db, row.id, attempts, Date.now() + delaySeconds * 1000);
+            }
+        }
+    } catch (error) {
+        for (const row of batch) {
+            const attempts = (row.attempts || 0) + 1;
+            const delaySeconds = backoffSeconds(attempts);
+            updateRetry(db, row.id, attempts, Date.now() + delaySeconds * 1000);
+        }
+        log.warn(`Result upload failed: ${error.message}`);
+    }
+}
+
+function backoffSeconds(attempts) {
+    const delays = [2, 5, 15, 30, 60, 120, 300];
+    const index = Math.min(attempts - 1, delays.length - 1);
+    return delays[index];
+}
+
 setInterval(() => {
     heartbeat();
 }, config.heartbeatIntervalMs);
@@ -133,6 +203,10 @@ setInterval(() => {
 }, Math.max(config.uploadIntervalMs, 10000));
 
 scheduler.start(config.schedulerIntervalMs);
+
+setInterval(() => {
+    uploadQueue();
+}, config.uploadIntervalMs);
 
 attemptRegistration();
 heartbeat();
