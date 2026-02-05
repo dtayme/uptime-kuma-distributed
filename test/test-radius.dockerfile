@@ -1,5 +1,5 @@
 # Container running a test radius server
-# More instructions in https://github.com/dtayme/uptime-kuma-distributed/pull/1635
+# More instructions in https://github.com/dtayme/uptime-kuma-distributed/pull/1635 (Last evaluated applicability: 2026-02-05.)
 
 FROM freeradius/freeradius-server:latest
 

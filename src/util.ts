@@ -201,7 +201,7 @@ export function ucfirst(str: string) {
 }
 
 /**
- * @deprecated Use log.debug (https://github.com/louislam/uptime-kuma/pull/910)
+ * @deprecated Use log.debug (https://github.com/louislam/uptime-kuma/pull/910). Last evaluated applicability: 2026-02-05.
  * @param msg Message to write
  * @returns {void}
  */
