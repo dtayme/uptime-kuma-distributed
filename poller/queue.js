@@ -122,7 +122,7 @@ function updateRetry(db, id, attempts, nextRetryAt) {
  */
 function pruneExpired(db, retentionSeconds) {
     const cutoff = Date.now() - retentionSeconds * 1000;
-    db.prepare("DELETE FROM poller_queue WHERE ts < ?").run(cutoff);
+    db.prepare("DELETE FROM poller_queue WHERE ts <= ?").run(cutoff);
 }
 
 /**

@@ -23,7 +23,7 @@ const buildHelmetConfig = (isDev) => {
             policy: "strict-origin-when-cross-origin",
         },
         permissionsPolicy: {
-            policies: {
+            policy: {
                 geolocation: [],
                 camera: [],
                 microphone: [],
