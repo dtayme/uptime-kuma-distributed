@@ -18,7 +18,7 @@ const repoNames = getRepoNames();
 const version = process.env.RELEASE_ALPHA_VERSION;
 const dryRun = process.env.DRY_RUN === "true";
 const previousVersion = process.env.RELEASE_PREVIOUS_VERSION;
-const branchName = `release-${version}`;
+const branchName = process.env.RELEASE_BRANCH_NAME || `release-${version}`;
 const githubRunId = process.env.GITHUB_RUN_ID;
 
 if (dryRun) {
