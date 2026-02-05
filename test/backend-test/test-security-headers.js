@@ -8,7 +8,7 @@ try {
     helmet = null;
 }
 
-const { buildHelmetConfig } = require("../../server/security-headers");
+const { buildHelmetConfig, permissionsPolicyMiddleware } = require("../../server/security-headers");
 
 /**
  * Create a test server with Helmet configured.
@@ -21,6 +21,7 @@ async function createServer(isDev) {
         throw new Error("Helmet is not installed");
     }
     app.use(helmet(buildHelmetConfig(isDev)));
+    app.use(permissionsPolicyMiddleware());
     app.get("/health", (_req, res) => {
         res.json({ ok: true });
     });

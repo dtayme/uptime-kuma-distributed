@@ -1,3 +1,5 @@
+const PERMISSIONS_POLICY = "geolocation=(), camera=(), microphone=(), payment=(), usb=(), fullscreen=(self)";
+
 const buildHelmetConfig = (isDev) => {
     const cspDirectives = {
         defaultSrc: ["'self'"],
@@ -22,20 +24,20 @@ const buildHelmetConfig = (isDev) => {
         referrerPolicy: {
             policy: "strict-origin-when-cross-origin",
         },
-        permissionsPolicy: {
-            policy: {
-                geolocation: [],
-                camera: [],
-                microphone: [],
-                payment: [],
-                usb: [],
-                fullscreen: ["self"],
-            },
-        },
         crossOriginEmbedderPolicy: false,
     };
 };
 
+/**
+ * Apply Permissions-Policy header (Helmet doesn't set it by default).
+ * @returns {(req: import("express").Request, res: import("express").Response, next: import("express").NextFunction) => void}
+ */
+const permissionsPolicyMiddleware = () => (_req, res, next) => {
+    res.setHeader("Permissions-Policy", PERMISSIONS_POLICY);
+    next();
+};
+
 module.exports = {
     buildHelmetConfig,
+    permissionsPolicyMiddleware,
 };

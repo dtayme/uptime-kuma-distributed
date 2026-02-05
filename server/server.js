@@ -77,7 +77,7 @@ const express = require("express");
 const expressStaticGzip = require("express-static-gzip");
 log.debug("server", "Importing helmet");
 const helmet = require("helmet");
-const { buildHelmetConfig } = require("./security-headers");
+const { buildHelmetConfig, permissionsPolicyMiddleware } = require("./security-headers");
 log.debug("server", "Importing redbean-node");
 const { R } = require("redbean-node");
 log.debug("server", "Importing jsonwebtoken");
@@ -98,6 +98,7 @@ const server = UptimeKumaServer.getInstance();
 const io = (module.exports.io = server.io);
 const app = server.app;
 app.use(helmet(buildHelmetConfig(isDev)));
+app.use(permissionsPolicyMiddleware());
 
 log.debug("server", "Importing Monitor");
 const Monitor = require("./model/monitor");
