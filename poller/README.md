@@ -145,4 +145,3 @@ Options to address this:
   central APIs.
 - This is an initial scaffold to be expanded as the control plane and data plane
   APIs are implemented.
-

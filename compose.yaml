@@ -7,4 +7,3 @@ services:
     ports:
       # <Host Port>:<Container Port>
       - "3001:3001"
-

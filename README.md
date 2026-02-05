@@ -69,4 +69,3 @@ If you want to translate Uptime Kuma Distributed into your language, please visi
 ### Spelling & Grammar
 
 Feel free to correct the grammar in the documentation or code.
-
