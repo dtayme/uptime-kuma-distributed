@@ -1,0 +1,7 @@
+name: "CodeQL config"
+
+paths-ignore:
+  # Opt-in local healthcheck override; documented in README.
+  - "extra/healthcheck.js"
+  # NTLM protocol requires legacy crypto; documented in README.
+  - "server/modules/axios-ntlm/lib/hash.js"

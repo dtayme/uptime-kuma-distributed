@@ -57,6 +57,11 @@ Healthcheck scripts now verify TLS certificates by default when HTTPS is enabled
 If you use a self-signed certificate, set `UPTIME_KUMA_SSL_CERT` to either the CA file path or a PEM string so the healthcheck can trust it.
 For local or emergency use only, you can disable verification by setting `UPTIME_KUMA_HEALTHCHECK_INSECURE=1` (not recommended for production).
 
+### NTLM Legacy Crypto
+
+NTLM authentication requires legacy algorithms (MD4/MD5/DES) for protocol compatibility.
+Use NTLM only when required and in trusted environments; prefer modern authentication mechanisms when available.
+
 ### Translations
 
 If you want to translate Uptime Kuma Distributed into your language, please visit [Weblate Readme](src/lang/README.md).
