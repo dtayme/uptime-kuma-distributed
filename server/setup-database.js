@@ -35,6 +35,24 @@ function getEnvOrFile(envName) {
 }
 
 /**
+ * Rate limit setup database requests.
+ * @param {import("express").Request} request Express request
+ * @param {import("express").Response} response Express response
+ * @param {import("express").NextFunction} next Express next
+ * @returns {Promise<void>}
+ */
+async function setupDatabaseRateLimit(request, response, next) {
+    allowDevAllOrigin(response);
+    const allowed = await setupRateLimiter.pass((err) => {
+        response.status(429).json(err);
+    });
+    if (!allowed) {
+        return;
+    }
+    next();
+}
+
+/**
  *  A standalone express app that is used to setup a database
  *  It is used when db-config.json and kuma.db are not found or invalid
  *  Once it is configured, it will shut down and start the main server
@@ -166,18 +184,9 @@ class SetupDatabase {
                 });
             });
 
-            app.post("/setup-database", async (request, response) => {
-                allowDevAllOrigin(response);
-
+            app.post("/setup-database", setupDatabaseRateLimit, async (request, response) => {
                 if (this.runningSetup) {
                     response.status(400).json("Setup is already running");
-                    return;
-                }
-
-                const allowed = await setupRateLimiter.pass((err) => {
-                    response.status(429).json(err);
-                });
-                if (!allowed) {
                     return;
                 }
 
