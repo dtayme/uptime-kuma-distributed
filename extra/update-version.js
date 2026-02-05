@@ -44,7 +44,7 @@ if (!exists) {
 }
 
 /**
- * Commit updated files
+ * Commit updated files and push the current branch
  * @param {string} version Version to update to
  * @returns {void}
  * @throws Error when committing files
@@ -59,6 +59,12 @@ function commit(version) {
     if (stdout.includes("no changes added to commit")) {
         throw new Error("commit error");
     }
+
+    // Push the release branch so downstream steps can create a PR.
+    res = childProcess.spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
+    let branchName = res.stdout.toString().trim();
+    console.log("Current branch:", branchName);
+    childProcess.spawnSync("git", ["push", "origin", branchName, "--force"], { stdio: "inherit" });
 }
 
 /**
