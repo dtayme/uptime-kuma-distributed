@@ -48,6 +48,9 @@ Optional environment variables:
 - `POLLER_ID`
 - `POLLER_TOKEN`
 - `POLLER_REGISTRATION_TOKEN`
+- `POLLER_REGISTRATION_TOKEN_TTL_MINUTES` (default: `60`)
+- `POLLER_REGISTRATION_TOKEN_EXPIRES_AT` (optional ISO timestamp, overrides TTL)
+- `POLLER_REGISTRATION_RATE_LIMIT_PER_MINUTE` (default: `10`, set `0` to disable)
 - `POLLER_REGION` (default: `local`)
 - `POLLER_DATACENTER`
 - `POLLER_CAPABILITIES_JSON` (default: `{}`)
@@ -100,6 +103,7 @@ docker run --rm \
 Notes:
 - You can also set the registration token in Settings -> Pollers instead of the env var.
 - If you are running central and poller in the same Docker network, use the service name for `POLLER_SERVER_URL`.
+- Registration tokens expire (default: 60 minutes). Regenerate a new token if the poller cannot register.
 
 ## DNS Settings
 

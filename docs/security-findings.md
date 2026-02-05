@@ -30,11 +30,16 @@ Notes:
 Status: Open
 Scope: `server/notification.js`, `server/settings.js`
 Recommendation: encrypt sensitive fields at rest (KMS or app-level key) and document backup handling.
+Notes:
+- Open question: the operational overhead of encryption/decryption may not be justified if the stored data is not critical enough.
 
-**Finding 5 (Medium): Poller registration token has no rate limit**
-Status: Open
+**Finding 5 (Medium): Poller registration token is a shared secret with no rate limiting; a leaked token allows unauthorized poller registration and results submission.**
+Status: Mitigated
 Scope: `server/routers/poller-router.js`
 Recommendation: rate-limit registration, log failed attempts, optionally add IP allowlists or time-limited tokens.
+Notes:
+- Added per-IP registration rate limiting with configurable limits and warning logs on failures.
+- Registration tokens now expire by default (TTL minutes), with optional overrides for TTL or explicit expiry.
 
 **Finding 6 (Low): Status page logo upload has no size limit**
 Status: Open

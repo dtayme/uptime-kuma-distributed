@@ -18,6 +18,10 @@
             <div class="form-text mt-2">
                 Provide this token in the <code>X-Poller-Registration-Token</code> header when calling
                 <code>POST /api/poller/register</code>.
+                <span v-if="registrationTokenExpiresAt">
+                    <br />
+                    Expires at: <code>{{ registrationTokenExpiresAt }}</code>
+                </span>
             </div>
         </div>
 
@@ -250,6 +254,7 @@ export default {
     data() {
         return {
             registrationToken: "",
+            registrationTokenExpiresAt: "",
             rotatedToken: "",
             rotatedPollerName: "",
             processing: false,
@@ -328,6 +333,7 @@ export default {
             this.$root.getPollerRegistrationToken((res) => {
                 if (res.ok) {
                     this.registrationToken = res.token || "";
+                    this.registrationTokenExpiresAt = res.expiresAt || "";
                 }
             });
         },
@@ -337,6 +343,7 @@ export default {
                 this.processing = false;
                 if (res.ok) {
                     this.registrationToken = res.token || "";
+                    this.registrationTokenExpiresAt = res.expiresAt || "";
                 } else {
                     this.$root.toastError(res.msg);
                 }

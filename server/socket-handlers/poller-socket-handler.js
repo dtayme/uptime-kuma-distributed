@@ -8,6 +8,36 @@ const { buildAssignmentsForPoller } = require("../poller/assignments");
 const { log, genSecret } = require("../../src/util");
 
 const DEFAULT_POLLER_DNS_CACHE_MAX_TTL_SECONDS = 60;
+const DEFAULT_REGISTRATION_TOKEN_TTL_MINUTES = 60;
+
+/**
+ * Parse a positive integer setting.
+ * @param {string|number|null|undefined} value Raw value
+ * @returns {number|null} Parsed integer or null
+ */
+function parsePositiveInt(value) {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+    }
+    return null;
+}
+
+/**
+ * Get registration token TTL in minutes.
+ * @returns {Promise<number>} TTL in minutes
+ */
+async function getRegistrationTokenTtlMinutes() {
+    const envValue = parsePositiveInt(process.env.POLLER_REGISTRATION_TOKEN_TTL_MINUTES);
+    if (envValue !== null) {
+        return envValue;
+    }
+    const settingValue = parsePositiveInt(await Settings.get("pollerRegistrationTokenTtlMinutes"));
+    if (settingValue !== null) {
+        return settingValue;
+    }
+    return DEFAULT_REGISTRATION_TOKEN_TTL_MINUTES;
+}
 
 /**
  * Hash a token using SHA-256.
@@ -43,9 +73,16 @@ module.exports.pollerSocketHandler = (socket) => {
         try {
             checkLogin(socket);
             const token = (await Settings.get("pollerRegistrationToken")) || "";
+            let expiresAt = (await Settings.get("pollerRegistrationTokenExpiresAt")) || null;
+            if (token && !expiresAt) {
+                const ttlMinutes = await getRegistrationTokenTtlMinutes();
+                expiresAt = dayjs.utc().add(ttlMinutes, "minute").toISOString();
+                await Settings.set("pollerRegistrationTokenExpiresAt", expiresAt);
+            }
             callback({
                 ok: true,
                 token,
+                expiresAt,
             });
         } catch (error) {
             callback({
@@ -99,10 +136,14 @@ module.exports.pollerSocketHandler = (socket) => {
         try {
             checkLogin(socket);
             const token = genSecret(48);
+            const ttlMinutes = await getRegistrationTokenTtlMinutes();
+            const expiresAt = dayjs.utc().add(ttlMinutes, "minute").toISOString();
             await Settings.set("pollerRegistrationToken", token);
+            await Settings.set("pollerRegistrationTokenExpiresAt", expiresAt);
             callback({
                 ok: true,
                 token,
+                expiresAt,
             });
         } catch (error) {
             callback({

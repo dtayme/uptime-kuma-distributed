@@ -8,6 +8,7 @@ const { UptimeKumaServer } = require("../uptime-kuma-server");
 const Monitor = require("../model/monitor");
 const { Prometheus } = require("../prometheus");
 const { UptimeCalculator } = require("../uptime-calculator");
+const { RateLimiter } = require("limiter");
 const {
     buildAssignmentsForPoller,
     computeAssignmentVersion,
@@ -19,6 +20,194 @@ const { log, UP, DOWN, PENDING, MAINTENANCE, flipStatus } = require("../../src/u
 const router = express.Router();
 const server = UptimeKumaServer.getInstance();
 const io = server.io;
+const registrationRateLimiters = new Map();
+const DEFAULT_REGISTRATION_RATE_LIMIT_PER_MINUTE = 10;
+const REGISTRATION_RATE_LIMIT_INTERVAL = "minute";
+const REGISTRATION_RATE_LIMIT_MAX_ENTRIES = 5000;
+const REGISTRATION_RATE_LIMIT_TTL_MS = 60 * 60 * 1000;
+const DEFAULT_REGISTRATION_TOKEN_TTL_MINUTES = 60;
+let cachedEnvRegistrationTokenExpiresAt = null;
+
+/**
+ * Parse a non-negative integer setting.
+ * @param {string|number|null|undefined} value Raw value
+ * @returns {number|null} Parsed integer or null
+ */
+function parseNonNegativeInt(value) {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+        return parsed;
+    }
+    return null;
+}
+
+/**
+ * Parse a positive integer setting.
+ * @param {string|number|null|undefined} value Raw value
+ * @returns {number|null} Parsed integer or null
+ */
+function parsePositiveInt(value) {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+    }
+    return null;
+}
+
+/**
+ * Get registration rate limit per minute from env or settings.
+ * @returns {Promise<number>} Rate limit per minute (0 to disable)
+ */
+async function getRegistrationRateLimitPerMinute() {
+    const envValue = parseNonNegativeInt(process.env.POLLER_REGISTRATION_RATE_LIMIT_PER_MINUTE);
+    if (envValue !== null) {
+        return envValue;
+    }
+    const settingValue = parseNonNegativeInt(await Settings.get("pollerRegistrationRateLimitPerMinute"));
+    if (settingValue !== null) {
+        return settingValue;
+    }
+    return DEFAULT_REGISTRATION_RATE_LIMIT_PER_MINUTE;
+}
+
+/**
+ * Get registration token TTL in minutes.
+ * @returns {Promise<number>} TTL in minutes
+ */
+async function getRegistrationTokenTtlMinutes() {
+    const envValue = parsePositiveInt(process.env.POLLER_REGISTRATION_TOKEN_TTL_MINUTES);
+    if (envValue !== null) {
+        return envValue;
+    }
+    const settingValue = parsePositiveInt(await Settings.get("pollerRegistrationTokenTtlMinutes"));
+    if (settingValue !== null) {
+        return settingValue;
+    }
+    return DEFAULT_REGISTRATION_TOKEN_TTL_MINUTES;
+}
+
+/**
+ * Resolve registration token and expiry.
+ * @returns {Promise<{token: string, expiresAt: string|null, source: string}>} Token details
+ */
+async function getRegistrationTokenDetails() {
+    const envToken = process.env.POLLER_REGISTRATION_TOKEN;
+    if (envToken) {
+        const expiresAt = await getEnvRegistrationTokenExpiresAt();
+        return {
+            token: envToken,
+            expiresAt,
+            source: "env",
+        };
+    }
+
+    const token = (await Settings.get("pollerRegistrationToken")) || "";
+    let expiresAt = (await Settings.get("pollerRegistrationTokenExpiresAt")) || null;
+    if (token && !expiresAt) {
+        const ttlMinutes = await getRegistrationTokenTtlMinutes();
+        expiresAt = dayjs.utc().add(ttlMinutes, "minute").toISOString();
+        await Settings.set("pollerRegistrationTokenExpiresAt", expiresAt);
+    }
+    return {
+        token,
+        expiresAt,
+        source: "settings",
+    };
+}
+
+/**
+ * Resolve expiry for env registration token.
+ * @returns {Promise<string|null>} Expiry timestamp in ISO format
+ */
+async function getEnvRegistrationTokenExpiresAt() {
+    if (cachedEnvRegistrationTokenExpiresAt) {
+        return cachedEnvRegistrationTokenExpiresAt;
+    }
+
+    const envExpiresAt = process.env.POLLER_REGISTRATION_TOKEN_EXPIRES_AT;
+    if (envExpiresAt) {
+        const parsed = dayjs.utc(envExpiresAt);
+        if (parsed.isValid()) {
+            cachedEnvRegistrationTokenExpiresAt = parsed.toISOString();
+            return cachedEnvRegistrationTokenExpiresAt;
+        }
+        log.warn("poller", "Invalid POLLER_REGISTRATION_TOKEN_EXPIRES_AT value");
+    }
+
+    const ttlMinutes = await getRegistrationTokenTtlMinutes();
+    cachedEnvRegistrationTokenExpiresAt = dayjs.utc().add(ttlMinutes, "minute").toISOString();
+    return cachedEnvRegistrationTokenExpiresAt;
+}
+
+/**
+ * Ensure a rate limiter entry for a given IP.
+ * @param {string} ip Client IP
+ * @param {number} tokensPerInterval Tokens per minute
+ * @returns {RateLimiter} Rate limiter instance
+ */
+function getRegistrationRateLimiter(ip, tokensPerInterval) {
+    const now = Date.now();
+    let entry = registrationRateLimiters.get(ip);
+
+    if (entry && now - entry.lastSeen > REGISTRATION_RATE_LIMIT_TTL_MS) {
+        registrationRateLimiters.delete(ip);
+        entry = null;
+    }
+
+    if (!entry || entry.tokensPerInterval !== tokensPerInterval) {
+        entry = {
+            limiter: new RateLimiter({
+                tokensPerInterval,
+                interval: REGISTRATION_RATE_LIMIT_INTERVAL,
+                fireImmediately: true,
+            }),
+            lastSeen: now,
+            tokensPerInterval,
+        };
+        registrationRateLimiters.set(ip, entry);
+    } else {
+        entry.lastSeen = now;
+    }
+
+    if (registrationRateLimiters.size > REGISTRATION_RATE_LIMIT_MAX_ENTRIES) {
+        for (const [key, value] of registrationRateLimiters) {
+            if (now - value.lastSeen > REGISTRATION_RATE_LIMIT_TTL_MS) {
+                registrationRateLimiters.delete(key);
+            }
+            if (registrationRateLimiters.size <= REGISTRATION_RATE_LIMIT_MAX_ENTRIES) {
+                break;
+            }
+        }
+    }
+
+    return entry.limiter;
+}
+
+/**
+ * Enforce per-IP rate limiting for poller registration.
+ * @param {import("express").Request} request Incoming request
+ * @param {import("express").Response} response Response object
+ * @returns {Promise<boolean>} True if allowed
+ */
+async function checkRegistrationRateLimit(request, response) {
+    const limit = await getRegistrationRateLimitPerMinute();
+    if (limit === 0) {
+        return true;
+    }
+
+    const clientIP = await server.getClientIPwithProxy(
+        request.socket?.remoteAddress || request.connection?.remoteAddress,
+        request.headers
+    );
+    const limiter = getRegistrationRateLimiter(clientIP || "unknown", limit);
+    const remaining = await limiter.removeTokens(1);
+    if (remaining < 0) {
+        log.warn("poller", `Poller registration rate limit exceeded (${clientIP || "unknown"})`);
+        response.status(429).json({ ok: false, msg: "Too frequently, try again later." });
+        return false;
+    }
+    return true;
+}
 
 /**
  * Check if pollers are enabled.
@@ -308,14 +497,27 @@ router.post("/api/poller/register", async (request, response) => {
             return response.status(404).json({ ok: false, msg: "Pollers are disabled" });
         }
 
-        const registrationSecret =
-            process.env.POLLER_REGISTRATION_TOKEN || (await Settings.get("pollerRegistrationToken")) || "";
+        if (!(await checkRegistrationRateLimit(request, response))) {
+            return;
+        }
+
+        const { token: registrationSecret, expiresAt, source } = await getRegistrationTokenDetails();
         if (!registrationSecret) {
             return response.status(503).json({ ok: false, msg: "Registration is disabled" });
         }
 
+        if (expiresAt && dayjs.utc(expiresAt).isBefore(dayjs.utc())) {
+            log.warn("poller", `Poller registration token expired (${source})`);
+            return response.status(403).json({ ok: false, msg: "Registration token expired" });
+        }
+
         const providedToken = getRegistrationToken(request);
         if (!providedToken || providedToken !== registrationSecret) {
+            const clientIP = await server.getClientIPwithProxy(
+                request.socket?.remoteAddress || request.connection?.remoteAddress,
+                request.headers
+            );
+            log.warn("poller", `Invalid poller registration token (${clientIP || "unknown"})`);
             return response.status(403).json({ ok: false, msg: "Invalid registration token" });
         }
 
