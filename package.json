@@ -1,6 +1,6 @@
 {
     "name": "uptime-kuma",
-    "version": "2.1.0-beta.3",
+    "version": "2.1.0-alpha.1+distributed.6936.c8175d99",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -45,7 +45,7 @@
         "build-docker-pr-test": "docker buildx build -f docker/dockerfile --platform linux/amd64,linux/arm64 -t fognetx/uptime-kuma-distributed:pr-test2 --target pr-test2 . --push",
         "upload-artifacts": "node extra/release/upload-artifacts.mjs",
         "upload-artifacts-beta": "node extra/release/upload-artifacts-beta.mjs",
-        "setup": "git checkout 2.0.2 && npm ci --omit dev --no-audit && npm run download-dist",
+        "setup": "git checkout 2.1.0-alpha.1+distributed.6936.c8175d99 && npm ci --omit dev --no-audit && npm run download-dist",
         "download-dist": "node extra/download-dist.js",
         "mark-as-nightly": "node extra/mark-as-nightly.js",
         "reset-password": "node extra/reset-password.js",
@@ -57,6 +57,7 @@
         "simple-mariadb": "docker run --rm -p 3306:3306 -e MYSQL_ROOT_PASSWORD=mariadb# mariadb",
         "update-language-files": "cd extra/update-language-files && node index.js && cross-env-shell eslint ../../src/languages/$npm_config_language.js --fix",
         "release-final": "node ./extra/release/final.mjs",
+        "release-alpha": "node ./extra/release/alpha.mjs",
         "release-beta": "node ./extra/release/beta.mjs",
         "release-nightly": "node ./extra/release/nightly.mjs",
         "git-remove-tag": "git tag -d",
