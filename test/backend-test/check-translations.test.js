@@ -63,7 +63,7 @@ describe("Check Translations", () => {
 
         // this is a resonably crude check, you can get around this trivially
         /// this check is just to save on maintainer energy to explain this on every review ^^
-        const translationRegex = /\$t\(['"](?<key1>.*?)['"]\s*[,)]|i18n-t[^>]*\s+keypath="(?<key2>[^"]+)"/dg;
+        const translationRegex = /\$t\(['"](?<key1>.*?)['"]\s*[,)]|i18n-t[^>]*\s+keypath="(?<key2>[^"]+)"/g;
 
         // detect server-side TranslatableError usage: new TranslatableError("key")
         const translatableErrorRegex = /new\s+TranslatableError\(\s*['"](?<key3>[^'"]+)['"]\s*\)/g;
