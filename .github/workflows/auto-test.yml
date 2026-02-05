@@ -47,10 +47,6 @@ jobs:
         run: npm i -g npm@11
       - run: npm clean-install --no-fund
 
-      - name: Rebuild native modules for ARM64
-        if: matrix.os == 'ubuntu-22.04-arm'
-        run: npm rebuild @louislam/sqlite3
-
       - run: npm run build
       - run: npm run test-backend
         env:
@@ -119,7 +115,7 @@ jobs:
     permissions:
       contents: read
     env:
-      PLAYWRIGHT_VERSION: ~1.39.0
+      PLAYWRIGHT_VERSION: ^1.58.1
     steps:
       - run: git config --global core.autocrlf false # Mainly for Windows
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -140,9 +136,6 @@ jobs:
         run: npm i -g npm@11
       - name: Install dependencies
         run: npm clean-install --no-fund
-
-      - name: Rebuild native modules for ARM64
-        run: npm rebuild @louislam/sqlite3
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
