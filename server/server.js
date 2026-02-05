@@ -499,7 +499,8 @@ let needSetup = false;
             }
 
             // Login Rate Limit
-            if (!(await loginRateLimiter.pass(callback))) {
+            const rateLimitKey = `socket:${clientIP}:${(data.username || "").trim().toLowerCase() || "unknown"}`;
+            if (!(await loginRateLimiter.pass(rateLimitKey, callback))) {
                 log.info("auth", `Too many failed requests for user ${data.username}. IP=${clientIP}`);
                 return;
             }
@@ -566,7 +567,8 @@ let needSetup = false;
 
         socket.on("logout", async (callback) => {
             // Rate Limit
-            if (!(await loginRateLimiter.pass(callback))) {
+            const clientIP = await server.getClientIP(socket);
+            if (!(await loginRateLimiter.pass(`socket:${clientIP}:logout`, callback))) {
                 return;
             }
 

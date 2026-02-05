@@ -56,6 +56,8 @@ Notes:
 - Added Helmet with a tailored CSP plus Referrer-Policy and Permissions-Policy headers.
 
 **Finding 8 (Low): Rate limiting is global, not per IP/user**
-Status: Open
+Status: Mitigated
 Scope: `server/rate-limiter.js`, `server/auth.js`
 Recommendation: key limits by IP and/or username.
+Notes:
+- Auth rate limiting now keys by client IP and username for API and basic auth flows.
