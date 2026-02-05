@@ -21,9 +21,11 @@ describe("Poller queue", () => {
 
         assert.strictEqual(queueDepth(db), 0);
 
+        const now = Date.now();
+
         enqueueResult(db, {
             monitorId: 1,
-            ts: Date.now(),
+            ts: now,
             status: 1,
             latencyMs: 42,
             msg: "OK",
@@ -31,11 +33,11 @@ describe("Poller queue", () => {
 
         enqueueResult(db, {
             monitorId: 2,
-            ts: Date.now(),
+            ts: now - 1000,
             status: 0,
             latencyMs: null,
             msg: "Down",
-            nextRetryAt: Date.now() + 100000,
+            nextRetryAt: now + 100000,
         });
 
         assert.strictEqual(queueDepth(db), 2);
