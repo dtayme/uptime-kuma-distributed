@@ -50,6 +50,11 @@ You can add extra allowed origins in Settings -> General (comma-separated).
 If you run behind a reverse proxy, ensure it forwards `X-Forwarded-Host` and enable `trustProxy` in settings.  
 If no base URL is configured, the server falls back to matching against the request host.
 
+### Push Monitor Tokens
+
+Prefer `POST /api/push` with the token in `X-Push-Token` or `Authorization: Bearer` to avoid exposing tokens in URLs.  
+Legacy URL-token push endpoints remain available for compatibility.
+
 ### Translations
 
 If you want to translate Uptime Kuma Distributed into your language, please visit [Weblate Readme](src/lang/README.md).

@@ -19,9 +19,12 @@ Notes:
 - Caveat: leaving the allowlist empty keeps the compatibility fallback, which is less strict than a hard allowlist.
 
 **Finding 3 (Medium): Push endpoint token exposure + no rate limit**
-Status: Open
+Status: Mitigated
 Scope: `server/routers/api-router.js`, `src/pages/EditMonitor.vue`, `src/util.ts`
 Recommendation: add per-IP rate limiting, prefer POST with token in header, and optionally allow server-side token rotation.
+Notes:
+- Added per-IP rate limiting on push requests and a header-based token flow (`X-Push-Token` or `Authorization: Bearer`) with `POST /api/push`.
+- Caveat: legacy URL-token push requests remain for compatibility; tokens in URLs can still leak via logs/referers if used.
 
 **Finding 4 (Medium): Sensitive notification/settings stored unencrypted**
 Status: Open

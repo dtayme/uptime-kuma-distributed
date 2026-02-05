@@ -1,2 +1,2 @@
-docker run -d --restart=always --name uptime-kuma-push fognetx/uptimekuma:push "https://example.com/api/push/key?status=up&msg=OK&ping=" 60
+docker run -d --restart=always --name uptime-kuma-push -e PUSH_TOKEN="your-token" fognetx/uptimekuma:push "https://example.com/api/push?status=up&msg=OK&ping=" 60
 
