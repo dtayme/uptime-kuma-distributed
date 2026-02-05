@@ -155,6 +155,7 @@ Status:
 - [x] Registration token support (env or settings)
 - [ ] Advanced filters/management UX (region/datacenter filters, rotate/revoke tokens)
 - [ ] Friendly poller aliases and ability to delete poller entries from the settings menu (should revoke/disable tokens)
+- [ ] Add unit tests for DNS caching and extend poller tests to validate cache behavior
 
 ### Poller Management
 
