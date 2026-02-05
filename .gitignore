@@ -10,7 +10,6 @@ dist-ssr
 /data
 !/data/.gitkeep
 /data*
-db/kuma.db
 .vscode
 
 /private
