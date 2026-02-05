@@ -42,9 +42,11 @@ Notes:
 - Registration tokens now expire by default (TTL minutes), with optional overrides for TTL or explicit expiry.
 
 **Finding 6 (Low): Status page logo upload has no size limit**
-Status: Open
+Status: Mitigated
 Scope: `server/socket-handlers/status-page-socket-handler.js`, `server/server.js` (public `/upload`)
 Recommendation: enforce max size and reject oversized payloads before decode/write.
+Notes:
+- Status page logo uploads now enforce a configurable max size for data URI PNGs (default 1MB).
 
 **Finding 7 (Low): Missing CSP/Referrer-Policy/Permissions-Policy headers**
 Status: Open

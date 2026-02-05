@@ -140,6 +140,24 @@
                 </div>
             </div>
 
+            <!-- Status Page Logo Max Size -->
+            <div class="mb-4">
+                <label class="form-label" for="statusPageLogoMaxSize">
+                    Status Page Logo Max Size (MB)
+                </label>
+                <input
+                    id="statusPageLogoMaxSize"
+                    v-model.number="statusPageLogoMaxMb"
+                    class="form-control"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                />
+                <div class="form-text">
+                    Set to 0 to disable the limit. Default is 1 MB.
+                </div>
+            </div>
+
             <!-- Steam API Key -->
             <div class="mb-4">
                 <label class="form-label" for="steamAPIKey">
@@ -227,6 +245,23 @@ export default {
         },
         settingsLoaded() {
             return this.$parent.$parent.$parent.settingsLoaded;
+        },
+        statusPageLogoMaxMb: {
+            get() {
+                const bytes = this.settings.statusPageLogoMaxBytes;
+                if (!Number.isFinite(bytes)) {
+                    return 1;
+                }
+                return Math.round((bytes / (1024 * 1024)) * 100) / 100;
+            },
+            set(value) {
+                const parsed = Number.parseFloat(value);
+                if (!Number.isFinite(parsed) || parsed < 0) {
+                    this.settings.statusPageLogoMaxBytes = 0;
+                    return;
+                }
+                this.settings.statusPageLogoMaxBytes = Math.round(parsed * 1024 * 1024);
+            },
         },
         guessTimezone() {
             return dayjs.tz.guess();
