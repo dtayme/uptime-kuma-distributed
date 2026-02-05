@@ -1557,7 +1557,6 @@ let needSetup = false;
                 }
 
                 const previousChromeExecutable = await Settings.get("chromeExecutable");
-                const previousNSCDStatus = await Settings.get("nscd");
 
                 await setSettings("general", data);
                 server.entryPage = data.entryPage;
@@ -1571,15 +1570,6 @@ let needSetup = false;
                 if (previousChromeExecutable !== data.chromeExecutable) {
                     log.info("settings", "Chrome executable is changed. Resetting Chrome...");
                     await resetChrome();
-                }
-
-                // Update nscd status
-                if (previousNSCDStatus !== data.nscd) {
-                    if (data.nscd) {
-                        await server.startNSCDServices();
-                    } else {
-                        await server.stopNSCDServices();
-                    }
                 }
 
                 callback({

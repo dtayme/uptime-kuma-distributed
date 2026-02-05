@@ -9,7 +9,6 @@ const Database = require("./database");
 const util = require("util");
 const { Settings } = require("./settings");
 const dayjs = require("dayjs");
-const childProcessAsync = require("promisify-child-process");
 const path = require("path");
 const axios = require("axios");
 const { isSSL, sslKey, sslCert, sslKeyPassphrase } = require("./config");
@@ -483,11 +482,7 @@ class UptimeKumaServer {
      * @returns {Promise<void>}
      */
     async start() {
-        let enable = await Settings.get("nscd");
-
-        if (enable || enable === null) {
-            await this.startNSCDServices();
-        }
+        // no-op
     }
 
     /**
@@ -495,44 +490,7 @@ class UptimeKumaServer {
      * @returns {Promise<void>}
      */
     async stop() {
-        let enable = await Settings.get("nscd");
-
-        if (enable || enable === null) {
-            await this.stopNSCDServices();
-        }
-    }
-
-    /**
-     * Start all system services (e.g. nscd)
-     * For now, only used in Docker
-     * @returns {void}
-     */
-    async startNSCDServices() {
-        if (process.env.UPTIME_KUMA_IS_CONTAINER) {
-            try {
-                log.info("services", "Starting nscd");
-                await childProcessAsync.exec("sudo service nscd start");
-            } catch (e) {
-                void e;
-                log.info("services", "Failed to start nscd");
-            }
-        }
-    }
-
-    /**
-     * Stop all system services
-     * @returns {void}
-     */
-    async stopNSCDServices() {
-        if (process.env.UPTIME_KUMA_IS_CONTAINER) {
-            try {
-                log.info("services", "Stopping nscd");
-                await childProcessAsync.exec("sudo service nscd stop");
-            } catch (e) {
-                void e;
-                log.info("services", "Failed to stop nscd");
-            }
-        }
+        // no-op
     }
 
     /**

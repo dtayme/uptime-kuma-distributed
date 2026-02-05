@@ -171,10 +171,6 @@ export default {
                     this.settings.entryPage = "dashboard";
                 }
 
-                if (this.settings.nscd === undefined) {
-                    this.settings.nscd = true;
-                }
-
                 if (this.settings.keepDataPeriodDays === undefined) {
                     this.settings.keepDataPeriodDays = 180;
                 }
