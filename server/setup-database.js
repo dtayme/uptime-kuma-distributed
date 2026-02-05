@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const Database = require("./database");
 const { allowDevAllOrigin } = require("./util-server");
-const { setupRateLimiter } = require("./rate-limiter");
+const rateLimit = require("express-rate-limit");
 const mysql = require("mysql2/promise");
 
 /**
@@ -35,22 +35,40 @@ function getEnvOrFile(envName) {
 }
 
 /**
- * Rate limit setup database requests.
+ * Handle rate limit responses for the setup database endpoint.
  * @param {import("express").Request} request Express request
  * @param {import("express").Response} response Express response
- * @param {import("express").NextFunction} next Express next
- * @returns {Promise<void>}
+ * @returns {void}
  */
-async function setupDatabaseRateLimit(request, response, next) {
+function handleSetupDatabaseRateLimit(request, response) {
+    void request;
     allowDevAllOrigin(response);
-    const allowed = await setupRateLimiter.pass((err) => {
-        response.status(429).json(err);
+    response.status(429).json({
+        ok: false,
+        msg: "Too frequently, try again later.",
     });
-    if (!allowed) {
-        return;
-    }
-    next();
 }
+
+/**
+ * Provide a stable rate limit key for setup requests.
+ * @param {import("express").Request} request Express request
+ * @param {import("express").Response} response Express response
+ * @returns {string} Rate limit key
+ */
+function getSetupDatabaseRateLimitKey(request, response) {
+    void request;
+    void response;
+    return "global";
+}
+
+const setupDatabaseRateLimit = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: getSetupDatabaseRateLimitKey,
+    handler: handleSetupDatabaseRateLimit,
+});
 
 /**
  *  A standalone express app that is used to setup a database
@@ -185,6 +203,8 @@ class SetupDatabase {
             });
 
             app.post("/setup-database", setupDatabaseRateLimit, async (request, response) => {
+                allowDevAllOrigin(response);
+
                 if (this.runningSetup) {
                     response.status(400).json("Setup is already running");
                     return;

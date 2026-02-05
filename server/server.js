@@ -82,7 +82,6 @@ log.debug("server", "Importing redbean-node");
 const { R } = require("redbean-node");
 log.debug("server", "Importing jsonwebtoken");
 const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
 log.debug("server", "Importing http-graceful-shutdown");
 const gracefulShutdown = require("http-graceful-shutdown");
 log.debug("server", "Importing prom-client");
@@ -113,7 +112,6 @@ const {
     initJWTSecret,
     checkLogin,
     doubleCheckPassword,
-    jwtPasswordMarker,
     allowDevAllOrigin,
 } = require("./util-server");
 
@@ -450,14 +448,11 @@ let needSetup = false;
 
                 if (user) {
                     // Check if the password changed
-                    const expectedMarker = jwtPasswordMarker(user.password, server.jwtSecret);
-                    const providedMarker = typeof decoded.h === "string" ? decoded.h : "";
-                    const expectedBuffer = Buffer.from(expectedMarker, "hex");
-                    const providedBuffer = Buffer.from(providedMarker, "hex");
-                    if (
-                        expectedBuffer.length !== providedBuffer.length ||
-                        !crypto.timingSafeEqual(expectedBuffer, providedBuffer)
-                    ) {
+                    const tokenVersion = Number.isInteger(decoded.tokenVersion)
+                        ? decoded.tokenVersion
+                        : Number.parseInt(decoded.tokenVersion, 10) || 0;
+                    const currentTokenVersion = User.normalizeTokenVersion(user.token_version);
+                    if (tokenVersion !== currentTokenVersion) {
                         throw new Error("The token is invalid due to password change or old token");
                     }
 

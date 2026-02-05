@@ -825,33 +825,6 @@ module.exports.rootCertificatesFingerprints = () => {
     return new Set(fingerprints);
 };
 
-module.exports.SHAKE256_LENGTH = 16;
-
-/**
- * @param {string} data The data to be hashed
- * @param {number} len Output length of the hash
- * @returns {string} The hashed data in hex format
- */
-module.exports.shake256 = (data, len) => {
-    if (!data) {
-        return "";
-    }
-    return crypto.createHash("shake256", { outputLength: len }).update(data).digest("hex");
-};
-
-/**
- * Create a stable JWT password marker using a server secret.
- * @param {string} hashedPassword Stored password hash
- * @param {string} jwtSecret Server JWT secret
- * @returns {string} HMAC digest in hex format
- */
-module.exports.jwtPasswordMarker = (hashedPassword, jwtSecret) => {
-    if (!hashedPassword) {
-        return "";
-    }
-    return crypto.createHmac("sha256", jwtSecret).update(hashedPassword).digest("hex");
-};
-
 /**
  * Non await sleep
  * Source: https://stackoverflow.com/questions/59099454/is-there-a-way-to-call-sleep-without-await-keyword

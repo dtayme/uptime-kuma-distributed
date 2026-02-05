@@ -42,6 +42,7 @@ let options = {
 if (useHttps) {
     if (healthcheckInsecure) {
         console.warn("Healthcheck TLS verification is disabled via UPTIME_KUMA_HEALTHCHECK_INSECURE=1");
+        // Opt-in local/dev override only. lgtm [js/disabling-certificate-validation]
         options.rejectUnauthorized = false;
     } else if (sslCert) {
         let ca = sslCert;

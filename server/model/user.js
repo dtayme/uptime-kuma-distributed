@@ -2,7 +2,6 @@ const { BeanModel } = require("redbean-node/dist/bean-model");
 const passwordHash = require("../password-hash");
 const { R } = require("redbean-node");
 const jwt = require("jsonwebtoken");
-const { jwtPasswordMarker } = require("../util-server");
 
 class User extends BeanModel {
     /**
@@ -13,7 +12,7 @@ class User extends BeanModel {
      * @returns {Promise<void>}
      */
     static async resetPassword(userID, newPassword) {
-        await R.exec("UPDATE `user` SET password = ? WHERE id = ? ", [
+        await R.exec("UPDATE `user` SET password = ?, token_version = token_version + 1 WHERE id = ? ", [
             await passwordHash.generate(newPassword),
             userID,
         ]);
@@ -27,9 +26,13 @@ class User extends BeanModel {
     async resetPassword(newPassword) {
         const hashedPassword = await passwordHash.generate(newPassword);
 
-        await R.exec("UPDATE `user` SET password = ? WHERE id = ? ", [hashedPassword, this.id]);
+        await R.exec("UPDATE `user` SET password = ?, token_version = token_version + 1 WHERE id = ? ", [
+            hashedPassword,
+            this.id,
+        ]);
 
         this.password = hashedPassword;
+        this.token_version = User.normalizeTokenVersion(this.token_version) + 1;
     }
 
     /**
@@ -42,11 +45,25 @@ class User extends BeanModel {
         return jwt.sign(
             {
                 username: user.username,
-                h: jwtPasswordMarker(user.password, jwtSecret),
+                tokenVersion: User.normalizeTokenVersion(user.token_version),
             },
             jwtSecret
         );
     }
+
+    /**
+     * Normalize token_version to an integer value.
+     * @param {number|string|undefined|null} tokenVersion Token version from storage
+     * @returns {number} Normalized token version
+     */
+    static normalizeTokenVersion(tokenVersion) {
+        if (typeof tokenVersion === "number" && Number.isInteger(tokenVersion)) {
+            return tokenVersion;
+        }
+        const parsed = Number.parseInt(tokenVersion, 10);
+        return Number.isNaN(parsed) ? 0 : parsed;
+    }
+
 }
 
 module.exports = User;

@@ -95,6 +95,7 @@
         "event-to-promise": "file:vendor/event-to-promise",
         "express": "~4.22.1",
         "express-basic-auth": "~1.2.1",
+        "express-rate-limit": "~8.2.1",
         "express-static-gzip": "~2.1.7",
         "fast-xml-parser": "5.3.4",
         "feed": "^4.2.2",
