@@ -34,12 +34,11 @@ jobs:
         with:
           command: cves
           image: fognetx/uptime-kuma-distributed:${{ matrix.image.tag }}
-          format: json
-          output: scout-${{ matrix.image.tag }}.json
+          sarif-file: scout-${{ matrix.image.tag }}.sarif.json
 
       - name: Upload report artifact
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: scout-${{ matrix.image.tag }}
-          path: scout-${{ matrix.image.tag }}.json
+          path: scout-${{ matrix.image.tag }}.sarif.json
           retention-days: 30
