@@ -32,7 +32,7 @@ Uptime Kuma Distributed is an easy-to-use self-hosted monitoring tool, forked fr
 
 ### Security Posture
 
-Uptime Kuma Distributed favors secure defaults and explicit controls. Healthchecks verify TLS by default, sensitive tokens can be rotated or revoked (including poller registration), and setup entry points are rate-limited. Code scanning is enabled with documented exceptions, and hardening notes are captured in the repository so operational decisions remain visible.
+Uptime Kuma Distributed favors secure defaults and explicit controls. Healthchecks verify TLS by default, sensitive tokens can be rotated or revoked (including poller registration), and setup entry points are rate-limited. Code scanning is enabled with documented exceptions, and hardening notes are captured in the repository so operational decisions remain visible. Poller images now use a dedicated `base2-poller` image to reduce runtime surface area.
 
 - [GitHub Issues](https://github.com/dtayme/uptime-kuma-distributed/issues)
 
