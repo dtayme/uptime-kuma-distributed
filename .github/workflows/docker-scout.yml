@@ -2,6 +2,35 @@ name: Docker Scout Reports
 
 on:
   workflow_dispatch:
+    inputs:
+      scan_central_alpha:
+        description: "Scan central (alpha)"
+        type: boolean
+        default: false
+      scan_poller_alpha:
+        description: "Scan poller (poller-alpha)"
+        type: boolean
+        default: false
+      scan_base2:
+        description: "Scan base2"
+        type: boolean
+        default: false
+      scan_base2_build:
+        description: "Scan base2-build"
+        type: boolean
+        default: false
+      scan_base2_runtime:
+        description: "Scan base2-runtime"
+        type: boolean
+        default: false
+      scan_base2_poller:
+        description: "Scan base2-poller"
+        type: boolean
+        default: false
+      scan_builder_go:
+        description: "Scan builder-go"
+        type: boolean
+        default: false
   schedule:
     - cron: "0 3 * * 1"
 
@@ -12,6 +41,8 @@ jobs:
   docker-scout:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      SCAN_ALL: ${{ inputs.scan_central_alpha != true && inputs.scan_poller_alpha != true && inputs.scan_base2 != true && inputs.scan_base2_build != true && inputs.scan_base2_runtime != true && inputs.scan_base2_poller != true && inputs.scan_builder_go != true }}
     strategy:
       matrix:
         image:
@@ -40,6 +71,17 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Run Docker Scout (CVEs)
+        if: >-
+          ${{
+            env.SCAN_ALL == 'true' ||
+            (inputs.scan_central_alpha == true && matrix.image.tag == 'alpha') ||
+            (inputs.scan_poller_alpha == true && matrix.image.tag == 'poller-alpha') ||
+            (inputs.scan_base2 == true && matrix.image.tag == 'base2') ||
+            (inputs.scan_base2_build == true && matrix.image.tag == 'base2-build') ||
+            (inputs.scan_base2_runtime == true && matrix.image.tag == 'base2-runtime') ||
+            (inputs.scan_base2_poller == true && matrix.image.tag == 'base2-poller') ||
+            (inputs.scan_builder_go == true && matrix.image.tag == 'builder-go')
+          }}
         uses: docker/scout-action@f8c776824083494ab0d56b8105ba2ca85c86e4de # v1.18.2
         with:
           command: cves
@@ -47,6 +89,17 @@ jobs:
           sarif-file: scout-${{ matrix.image.tag }}.sarif.json
 
       - name: Upload report artifact
+        if: >-
+          ${{
+            env.SCAN_ALL == 'true' ||
+            (inputs.scan_central_alpha == true && matrix.image.tag == 'alpha') ||
+            (inputs.scan_poller_alpha == true && matrix.image.tag == 'poller-alpha') ||
+            (inputs.scan_base2 == true && matrix.image.tag == 'base2') ||
+            (inputs.scan_base2_build == true && matrix.image.tag == 'base2-build') ||
+            (inputs.scan_base2_runtime == true && matrix.image.tag == 'base2-runtime') ||
+            (inputs.scan_base2_poller == true && matrix.image.tag == 'base2-poller') ||
+            (inputs.scan_builder_go == true && matrix.image.tag == 'builder-go')
+          }}
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: scout-${{ matrix.image.tag }}
