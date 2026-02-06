@@ -60,6 +60,10 @@ async function main() {
             cwd: workdir,
             env: withGoEnv(goToolchain, goos, goarch, goarm, cgoEnabled),
         });
+        runCommand("go", ["mod", "vendor"], {
+            cwd: workdir,
+            env: withGoEnv(goToolchain, goos, goarch, goarm, cgoEnabled),
+        });
     }
 
     runCommand("make", ["cloudflared"], {
