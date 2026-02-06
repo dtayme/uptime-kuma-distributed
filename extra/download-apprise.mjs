@@ -6,6 +6,7 @@ import semver from "semver";
 import * as childProcess from "child_process";
 
 const baseURL = "http://ftp.debian.org/debian/pool/main/a/apprise/";
+const requestedVersion = process.env.APPRISE_DEB_VERSION?.trim();
 let html = "";
 try {
     html = childProcess.execSync(`curl -sSL ${baseURL}`, { encoding: "utf8" });
@@ -32,17 +33,25 @@ if (links.length === 0) {
     throw new Error("No Apprise Debian packages found in repository listing.");
 }
 
-// semver compare and download
+// Resolve the version to download
 let latestLink = {
     filename: "",
     version: "0.0.0",
 };
 
-for (const link of links) {
-    const nextVersion = semver.coerce(link.version);
-    const currentVersion = semver.coerce(latestLink.version);
-    if (nextVersion && (!currentVersion || semver.gt(nextVersion, currentVersion))) {
-        latestLink = link;
+if (requestedVersion) {
+    const match = links.find((link) => link.version === requestedVersion);
+    if (!match) {
+        throw new Error(`Requested Apprise version not found: ${requestedVersion}`);
+    }
+    latestLink = match;
+} else {
+    for (const link of links) {
+        const nextVersion = semver.coerce(link.version);
+        const currentVersion = semver.coerce(latestLink.version);
+        if (nextVersion && (!currentVersion || semver.gt(nextVersion, currentVersion))) {
+            latestLink = link;
+        }
     }
 }
 

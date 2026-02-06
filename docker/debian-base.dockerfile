@@ -1,5 +1,6 @@
 # Download Apprise deb package
 FROM node:22-bookworm-slim AS download-apprise
+ARG APPRISE_DEB_VERSION=1.9.3-1
 ARG ENABLE_APPRISE=1
 WORKDIR /app
 COPY ./extra/download-apprise.mjs ./download-apprise.mjs
@@ -7,7 +8,7 @@ RUN if [ "$ENABLE_APPRISE" = "1" ]; then \
         apt update && \
         apt --yes --no-install-recommends install curl && \
         npm install cheerio semver && \
-        node ./download-apprise.mjs && \
+        APPRISE_DEB_VERSION="$APPRISE_DEB_VERSION" node ./download-apprise.mjs && \
         rm -rf /var/lib/apt/lists/* && \
         npm cache clean --force; \
     else \
