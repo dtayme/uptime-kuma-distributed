@@ -1,8 +1,12 @@
+# syntax=docker/dockerfile:1.7
 FROM node:22-bookworm-slim AS apprise-pip
 ARG APPRISE_PIP_VERSION=1.9.7
 ARG ENABLE_APPRISE=1
 ARG TARGETARCH
-RUN set -eux; \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    --mount=type=cache,target=/root/.cache/pip \
+    set -eux; \
     mkdir -p /apprise-root; \
     if [ "$ENABLE_APPRISE" = "1" ]; then \
         apt update && \
@@ -14,10 +18,10 @@ RUN set -eux; \
             python3 \
             python3-pip \
             $build_deps && \
-        python3 -m pip install --no-cache-dir --break-system-packages \
+        python3 -m pip install --break-system-packages \
             "apprise==${APPRISE_PIP_VERSION}" \
             paho-mqtt && \
-        python3 -m pip install --no-cache-dir --break-system-packages --upgrade \
+        python3 -m pip install --break-system-packages --upgrade \
             cryptography \
             urllib3 \
             certifi && \
@@ -29,8 +33,7 @@ RUN set -eux; \
             apt --yes purge $build_deps; \
         fi; \
         apt --yes purge python3-pip && \
-        apt --yes autoremove && \
-        rm -rf /var/lib/apt/lists/* /root/.cache/pip; \
+        apt --yes autoremove; \
     fi
 
 # Base Image (Slim)
@@ -45,28 +48,32 @@ ARG TARGETPLATFORM
 # iputils-ping = for ping
 # dumb-init = avoid zombie processes (#480)
 # ca-certificates = keep the cert up-to-date
-RUN apt update && \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt update && \
     apt --yes --no-install-recommends install  \
         ca-certificates \
         iputils-ping  \
         dumb-init && \
-    rm -rf /var/lib/apt/lists/* && \
     apt --yes autoremove
 
 # apprise = for notifications (Install via pip to avoid outdated Debian Python packages)
 # paho-mqtt (#4859)
 COPY --from=apprise-pip /apprise-root/ /
-RUN if [ "$ENABLE_APPRISE" = "1" ]; then \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    if [ "$ENABLE_APPRISE" = "1" ]; then \
         apt update && \
         apt --yes --no-install-recommends install \
             python3 && \
-        rm -rf /var/lib/apt/lists/* && \
         apt --yes autoremove; \
     fi
 
 # Install cloudflared
 ARG CLOUDFLARED_VERSION=2026.1.2
-RUN apt update && \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt update && \
     apt --yes --no-install-recommends install curl && \
     case "$TARGETARCH" in \
         amd64) CF_ARCH="amd64" ;; \
@@ -79,7 +86,6 @@ RUN apt update && \
     chmod +x /usr/local/bin/cloudflared && \
     /usr/local/bin/cloudflared version && \
     apt --yes purge curl && \
-    rm -rf /var/lib/apt/lists/* && \
     apt --yes autoremove
 
 # Runtime base without npm (reduce CVEs in runtime image)
@@ -116,9 +122,10 @@ RUN set -eux; \
 # FROM base2-slim AS base2
 FROM base2-slim-runtime AS base2
 ENV UPTIME_KUMA_ENABLE_EMBEDDED_MARIADB=1
-RUN apt update && \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt update && \
     apt --yes --no-install-recommends install chromium fonts-indic fonts-noto fonts-noto-cjk mariadb-server && \
-    rm -rf /var/lib/apt/lists/* && \
     apt --yes autoremove && \
     chown -R node:node /var/lib/mysql
 

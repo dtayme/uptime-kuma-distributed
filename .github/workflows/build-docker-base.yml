@@ -34,14 +34,52 @@ jobs:
         with:
           node-version: 20
 
+      # TODO: Evaluate migrating to docker buildx bake to consolidate builds and improve cache sharing.
       - name: Build and push base2-build image
-        run: npm run build-docker-base-build
+        run: >
+          docker buildx build
+          -f docker/debian-base.dockerfile
+          --platform linux/amd64,linux/arm64,linux/arm/v7
+          -t fognetx/uptime-kuma-distributed:base2-build
+          -t fognetx/uptime-kuma-distributed:base2-slim
+          --target base2-slim
+          --cache-from type=gha
+          --cache-to type=gha,mode=max
+          .
+          --push
 
       - name: Build and push base2-runtime image
-        run: npm run build-docker-base-runtime
+        run: >
+          docker buildx build
+          -f docker/debian-base.dockerfile
+          --platform linux/amd64,linux/arm64,linux/arm/v7
+          -t fognetx/uptime-kuma-distributed:base2-runtime
+          --target base2-slim-runtime
+          --cache-from type=gha
+          --cache-to type=gha,mode=max
+          .
+          --push
 
       - name: Build and push base2-poller image
-        run: npm run build-docker-base-poller
+        run: >
+          docker buildx build
+          -f docker/debian-base.dockerfile
+          --platform linux/amd64,linux/arm64,linux/arm/v7
+          -t fognetx/uptime-kuma-distributed:base2-poller
+          --target base2-poller
+          --cache-from type=gha
+          --cache-to type=gha,mode=max
+          .
+          --push
 
       - name: Build and push base2 image
-        run: npm run build-docker-base
+        run: >
+          docker buildx build
+          -f docker/debian-base.dockerfile
+          --platform linux/amd64,linux/arm64,linux/arm/v7
+          -t fognetx/uptime-kuma-distributed:base2
+          --target base2
+          --cache-from type=gha
+          --cache-to type=gha,mode=max
+          .
+          --push
