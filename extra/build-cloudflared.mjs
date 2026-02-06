@@ -10,11 +10,16 @@
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
+import { fileURLToPath } from "url";
 
 const DEFAULT_TAG = "2026.2.0";
 const DEFAULT_REPO = "https://github.com/cloudflare/cloudflared.git";
 
-if (import.meta.main) {
+const isMain = typeof import.meta.main === "boolean"
+    ? import.meta.main
+    : fileURLToPath(import.meta.url) === path.resolve(process.argv[1] ?? "");
+
+if (isMain) {
     await main();
 }
 
