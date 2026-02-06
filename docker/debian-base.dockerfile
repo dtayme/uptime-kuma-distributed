@@ -71,7 +71,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 # Install cloudflared
 ARG CLOUDFLARED_VERSION=2026.2.0
-ARG CLOUDFLARED_DOWNLOAD_BASE=https://github.com/fognetx/uptime-kuma-distributed/releases/download/cloudflared-${CLOUDFLARED_VERSION}
+ARG CLOUDFLARED_RELEASE_REPO=dtayme/uptime-kuma-distributed
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt update && \
@@ -82,6 +82,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         arm) CF_ARCH="arm" ;; \
         *) echo "Unsupported TARGETARCH: $TARGETARCH" && exit 1 ;; \
     esac && \
+    CLOUDFLARED_DOWNLOAD_BASE="https://github.com/${CLOUDFLARED_RELEASE_REPO}/releases/download/cloudflared-${CLOUDFLARED_VERSION}" && \
     curl -fsSL -o /usr/local/bin/cloudflared \
         "${CLOUDFLARED_DOWNLOAD_BASE}/cloudflared-linux-${CF_ARCH}" && \
     chmod +x /usr/local/bin/cloudflared && \
