@@ -19,6 +19,14 @@ jobs:
             tag: alpha
           - name: poller
             tag: poller-alpha
+          - name: base2
+            tag: base2
+          - name: base2-slim
+            tag: base2-slim
+          - name: base2-poller
+            tag: base2-poller
+          - name: builder-go
+            tag: builder-go
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
