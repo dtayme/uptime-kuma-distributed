@@ -1,3 +1,38 @@
+FROM node:22-bookworm-slim AS apprise-pip
+ARG APPRISE_PIP_VERSION=1.9.7
+ARG ENABLE_APPRISE=1
+ARG TARGETARCH
+RUN set -eux; \
+    mkdir -p /apprise-root; \
+    if [ "$ENABLE_APPRISE" = "1" ]; then \
+        apt update && \
+        build_deps=""; \
+        if [ "$TARGETARCH" = "arm" ]; then \
+            build_deps="build-essential libffi-dev python3-dev"; \
+        fi; \
+        apt --yes --no-install-recommends install \
+            python3 \
+            python3-pip \
+            $build_deps && \
+        python3 -m pip install --no-cache-dir --break-system-packages \
+            "apprise==${APPRISE_PIP_VERSION}" \
+            paho-mqtt && \
+        python3 -m pip install --no-cache-dir --break-system-packages --upgrade \
+            cryptography \
+            urllib3 \
+            certifi && \
+        mkdir -p /apprise-root/usr/local/lib/python3.11 \
+            /apprise-root/usr/local/bin && \
+        cp -a /usr/local/lib/python3.11/dist-packages /apprise-root/usr/local/lib/python3.11/ && \
+        cp -a /usr/local/bin/apprise /apprise-root/usr/local/bin/ && \
+        if [ -n "$build_deps" ]; then \
+            apt --yes purge $build_deps; \
+        fi; \
+        apt --yes purge python3-pip && \
+        apt --yes autoremove && \
+        rm -rf /var/lib/apt/lists/* /root/.cache/pip; \
+    fi
+
 # Base Image (Slim)
 # If the image changed, the second stage image should be changed too
 FROM node:22-bookworm-slim AS base2-slim
@@ -20,20 +55,11 @@ RUN apt update && \
 
 # apprise = for notifications (Install via pip to avoid outdated Debian Python packages)
 # paho-mqtt (#4859)
+COPY --from=apprise-pip /apprise-root/ /
 RUN if [ "$ENABLE_APPRISE" = "1" ]; then \
         apt update && \
         apt --yes --no-install-recommends install \
-            python3 \
-            python3-pip && \
-        python3 -m pip install --no-cache-dir --break-system-packages \
-            "apprise==${APPRISE_PIP_VERSION}" \
-            paho-mqtt && \
-        python3 -m pip install --no-cache-dir --break-system-packages --upgrade \
-            cryptography \
-            urllib3 \
-            certifi && \
-        apt --yes purge python3-pip && \
-        rm -rf /root/.cache/pip && \
+            python3 && \
         rm -rf /var/lib/apt/lists/* && \
         apt --yes autoremove; \
     fi
