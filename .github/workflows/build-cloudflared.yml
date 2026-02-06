@@ -13,7 +13,7 @@ on:
       module_overrides:
         description: "Comma-separated module@version overrides"
         required: false
-        default: "golang.org/x/crypto@v0.43.0"
+        default: "golang.org/x/crypto@v0.45.0"
       go_toolchain:
         description: "Go toolchain override (e.g. go1.24.12)"
         required: false
